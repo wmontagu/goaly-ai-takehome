@@ -1,34 +1,40 @@
 # SOP-Guided Insurance Claims Agent
 
-An insurance claims support agent that follows a fixed 4-phase SOP
-(`VERIFY_ID → RESOLVE_INTENT → PROCESS_CASE → POST_PROCESS`) while still
-conversing naturally. Code owns the state machine and every gate. The LLM
-owns language.
+An insurance claims support agent that follows a fixed 4-phase SOP,
+`VERIFY_ID → RESOLVE_INTENT → PROCESS_CASE → POST_PROCESS`, while still
+conversing naturally.
 
-> **Status: spec phase. No code yet.** The setup below is the target that
-> the build must satisfy. The full design contract is **[SPEC.md](./SPEC.md)**.
+**Code owns the state machine. The LLM owns language.** The model never
+decides that a caller is verified or that the conversation moves on. It
+proposes structured facts, and deterministic code checks them against the
+fixtures, decides the phase, and controls which data the reply is allowed to
+see.
+
+The full design contract is [SPEC.md](./SPEC.md).
 
 ## Tech stack
 
-- Next.js 16 (App Router), React 19, TypeScript, Tailwind 4
-- Anthropic SDK: **Haiku** for per-turn understanding/extraction, **Sonnet**
-  for replies and the email summary
-- Zod-validated LLM outputs, with SSE streaming to the chat UI
-- Deployed on **Render** as a single persistent Node service. All SOP state
-  lives server-side.
+- **Next.js 16** (App Router), **React 19**, **TypeScript**, **Tailwind 4**
+- **Anthropic SDK** with two models per turn:
+  - **Haiku** (`claude-haiku-5-5`) for the cheap, structured "understand" call
+  - **Sonnet** (`claude-sonnet-5-5`) for the reply and the email summary, with server-side refusal fallbacks
+- **Zod** structured outputs for every model call that returns data
+- **SSE** (native `ReadableStream`) to stream each turn's pipeline trace to the UI
+- **Vitest** for unit tests (no LLM), plus a golden-conversation eval runner against the real models
+- **Render** as one persistent Node service, with a **Dockerfile** for the Docker deliverable
 
 ## Setup (local)
 
 ```bash
 npm install
 cp .env.example .env.local
-# set ANTHROPIC_API_KEY (required)
+# set ANTHROPIC_API_KEY
 npm run dev
 ```
 
-Open http://localhost:3000 and chat with the agent. If no server key is
-set, you can paste an API key into the UI's optional key field instead. It
-is sent per request and is never stored.
+Open http://localhost:3000. If the server has no key, paste one into the
+**test drawer**. That key is held in that browser tab only, sent per request
+in a header, and never stored or logged on the server.
 
 ### Environment variables
 
@@ -38,56 +44,148 @@ is sent per request and is never stored.
 | `MODEL_UNDERSTAND` | no | `claude-haiku-5-5` | Call ①: classify + extract |
 | `MODEL_RESPOND` | no | `claude-sonnet-5-5` | Call ⑤: reply, plus the email summary |
 | `EMAIL_PROVIDER` | no | `simulated` | Email sender implementation |
-| `SOP_TODAY` | no | real date | Fixed "today" for deadline math in demos |
+| `SOP_TODAY` | no | real date | Fixed "today" (YYYY-MM-DD) for deadline math. The fixture claims are from early 2026, so `2026-02-20` keeps CL-2048's appeal deadline in the future. |
+
+### Checks
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build   # the full gate
+ANTHROPIC_API_KEY=... npm run eval                               # 13 golden conversations, real models
+ANTHROPIC_API_KEY=... npm run eval -- margaret                   # just one
+```
 
 ## Docker
 
 ```bash
 docker build -t sop-agent .
-docker run -e ANTHROPIC_API_KEY=sk-... -p 3000:3000 sop-agent
+docker run -e ANTHROPIC_API_KEY=sk-... -e SOP_TODAY=2026-02-20 -p 3000:3000 sop-agent
 ```
 
 ## Deploy (Render)
 
-One web service, defined in `render.yaml`:
-- Build `npm install && npm run build`, start `next start -p $PORT`
-- Set `ANTHROPIC_API_KEY` as a secret env var
-- **1 instance, no autoscaling.** Session state lives in the process's
-  memory.
-- Health check: `/api/health`
-- The free tier sleeps after about 15 minutes idle, which wipes open
-  sessions. Use Starter while the demo is being reviewed.
+`render.yaml` is a blueprint for one web service:
+- Build `npm install && npm run build`, start `npx next start -p $PORT`.
+- Set `ANTHROPIC_API_KEY` as a secret in the dashboard (`sync: false`).
+- **1 instance, no autoscaling.** All SOP state is server-side in that
+  process's memory, so a second instance would split sessions.
+- Health check: `/api/health`.
+- The blueprint uses the Starter plan. The free plan sleeps after about 15
+  minutes idle and wipes open sessions. If that happens the UI says so and
+  starts a fresh session, which always begins at VERIFY_ID.
 
 ## Try it
 
-The canonical test case, sent as the first message:
+Pick **Margaret: happy path** in the test drawer, or send:
 
 > I'm the policyholder. My name is Margaret Chen, policy POL-9921. I'm
 > calling about my denied healthcare claim from January. DOB is 1985-03-15,
 > SSN last four is 4472.
 
-Expected: the agent verifies on that turn, resolves claim CL-2048 from the
-remembered hint without asking again, explains the denial from the claim
-data, then offers an email summary that you can accept or skip.
+That one message verifies her, resolves claim CL-2048 from the hint she gave
+(without asking "how can I help?"), and explains the denial from the claim
+record. Say you're done, and the agent offers an email summary that you can
+accept or skip. The middle panel shows the phase, identity checklist, memory,
+and counters. The right panel shows every pipeline step.
 
-The test drawer in the UI has more scripted cases: a frustrated caller, an
-off-topic caller, a representative calling for someone else (David Chen),
-and a caller with a national ID instead of an SSN (Ma Tian).
+Other scripts in the drawer: hint before verification, frustrated caller,
+refuses SSN, off-topic ×3, representative David Chen (consent approved or
+timing out), Ma Tian (national ID), and an injection attempt.
 
-## Design summary
+## How it works
 
-See [SPEC.md](./SPEC.md). Key decisions:
-- **Two-call pipeline per turn:** Haiku extracts structured facts without
-  ever seeing claim data, code runs the phase gates, then Sonnet replies
-  using only the data that phase is allowed to see. An output filter
-  backstops leaks.
-- **Gates are loops:** a phase repeats across turns until its exit condition
-  holds. Within a turn, gates that are already satisfied cascade.
-- **Verification:** any 3 matching fields on one record, from {name, DOB,
-  phone, email, ID last 4, policy number}. After 3 failed attempts
-  (mismatch, still short after a re-ask, or refusal), the caller is
-  transferred to a human.
-- **Cross-phase memory:** anything the caller says is stored on every turn,
-  and is only acted on once the right phase is reached.
-- **Email:** sent only on an explicit yes, through an `EmailSender`
-  abstraction. A simulated sender ships.
+### One fixed pipeline per turn ([`lib/sop/engine.ts`](./lib/sop/engine.ts))
+
+```
+① UNDERSTAND  Haiku → typed Understanding (Zod). Never sees fixture data.
+② REMEMBER    merge into SessionMemory, in every phase
+   POLICIES   human request → transfer; off-topic/injection → strike, no gate
+③ GATES       current phase's exit condition, against memory + fixtures
+④ TRANSITION  pass → next phase, and re-run the next gate (cascade)
+⑤ RESPOND     Sonnet, given only this phase's visibleData() + directives
+⑥ FILTER      pre-verify: block claim/PII leaks; post-verify: ground amounts/dates
+```
+
+### Gates are loops ([`lib/sop/gates.ts`](./lib/sop/gates.ts))
+
+Each phase repeats across turns until its exit condition holds, and returns
+exactly what's missing so the reply asks for that. Within one turn, gates
+that memory already satisfies cascade. That's how Margaret's first message
+goes VERIFY_ID → RESOLVE_INTENT → PROCESS_CASE. Every loop also has a capped
+escape to a human, so none can run forever.
+
+| Phase | Exit condition | Escape |
+| --- | --- | --- |
+| VERIFY_ID | any 3 of {name, DOB, phone, email, ID last 4, policy number} match one record, with no contradictions (+ rep consent) | 3 failed attempts · consent timeout |
+| RESOLVE_INTENT | an intent + one of the verified caller's claims | offers a human after 3 turns with no progress |
+| PROCESS_CASE | the caller says they're done | off-topic strikes · human request |
+| POST_PROCESS | explicit email yes / no | 2 unclear answers → skip |
+
+**Verification decisions.**
+- **The policy number counts as one of the 3 fields**, and it's also the
+  lookup key. One caveat: name and policy number are both printed on an
+  insurance card, so a stolen card gives 2 of 3, and the third field has to
+  be something that isn't on the card.
+- **A failed attempt** is any of: a contradicting field, a re-ask answered
+  with no new matching field, or a refusal. The first ask is free, and
+  clarifying questions don't count.
+- **The reply never learns which field was wrong.** The model only gets how
+  many fields were *provided*.
+
+### Defense in depth against leaks (SPEC §7)
+
+1. **Context isolation**: before verification, the reply prompt contains no
+   claim data at all ([`phases.ts`](./lib/sop/phases.ts)).
+2. **Per-phase tool allowlist**: claim lookups can't run in VERIFY_ID, and
+   rejected calls are logged ([`tools.ts`](./lib/tools.ts)).
+3. **Output filter**: any reply that mentions fixture values the caller
+   didn't type is replaced before the caller sees it ([`filter.ts`](./lib/sop/filter.ts)).
+4. **Transitions are code-only**: the model has no way to change the phase.
+
+### Server-side state
+
+The browser holds only a session ID. Phase, memory, counters, consent, the
+outbox, and the trace all live in the Render process
+([`session-store.ts`](./lib/session-store.ts)), so a client can't forge
+verification or reset a counter. The state panel is a read-only view.
+
+### Emotion and SOP recovery
+
+The understand call labels emotion. Code maps that label to a fixed strategy
+injected into the reply prompt:
+1. acknowledge the feeling;
+2. explain why the gate exists (fixed rationale text per gate);
+3. offer alternatives (other ID fields, or a human);
+4. end with one concrete next step.
+
+The gate itself never relaxes.
+
+## Project structure
+
+```
+apps/insurance_claims/   fixtures (given, untouched), typed loader, SOP config, prompts, doc aliases
+lib/sop/                 engine, state machine, gates, memory, policies, phases, filter, directives, view
+lib/domain/              identity matching, case resolution, guidance, email summary, representatives
+lib/llm/                 Anthropic client, understand (Haiku), respond + summarize (Sonnet)
+lib/email/               EmailSender interface + simulated sender
+lib/tools.ts             agent actions behind the per-phase allowlist
+app/                     UI (chat, SOP state, trace, test drawer) + /api/chat, /api/session, /api/health
+tests/unit/              vitest, no LLM (61 tests, including the engine with a scripted LLM)
+tests/golden/            real-model conversation evals
+```
+
+## Known limitations
+
+- **Replies aren't token-streamed.** Each reply is generated in full, checked
+  by the output filter, then sent. Streaming tokens live would show a leaking
+  reply before the filter could block it. The pipeline trace does stream live.
+- **The email is simulated.** It appears as a preview card. A real provider
+  is one class behind `EmailSender` plus `EMAIL_PROVIDER`.
+- **Sessions live in memory** in one process. A restart wipes them, and
+  scaling past one instance would need Render Key Value behind the session store.
+- **The output filter is pattern-based.** It reliably catches fixture values,
+  case IDs, and dollar amounts, but a model paraphrasing a denial reason in
+  entirely new words would get past it. Context isolation is what prevents
+  that: before verification the model has no claim data to paraphrase.
+- **No auth on the demo UI.** The identity checklist in the state panel shows
+  which fields matched. That's useful for reviewers, but a real deployment
+  would hide it from callers.

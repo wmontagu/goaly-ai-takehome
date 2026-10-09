@@ -1,7 +1,7 @@
 # SOP-Guided Insurance Claims Agent — Spec
 
-Status: **spec only, no code yet.** This file is the build contract. The
-prompt that kicks off implementation is at the bottom (§12).
+Status: **implemented** (build steps 1-7 of §13). This file is the build
+contract. Where the build interpreted or deviated from it, §15 says so.
 
 ## 0. Lineage and the one-sentence design
 
@@ -612,9 +612,8 @@ sop-guided-conversational-agent-starter/
                              #   verify-sop-gates (no-leak invariant check)
 ```
 
-**Repo note:** this folder currently sits inside the parent
-`Personal Projects` git repo (branch `clarity-will`). It should get its own
-`git init` and GitHub repo before building, like governed-agent-harness did.
+**Repo note:** this folder now has its own git repo (`main`). No GitHub
+remote yet.
 
 ## 13. Build-kickoff prompt
 
@@ -679,9 +678,38 @@ INTERVIEW_PREP.md (gitignored). README.md is the public setup doc.
 2. **Policy number:** counts as one of the 3 factors (OR logic) and is also
    the lookup key for the existing record (§4.1).
 3. **Email:** abstracted behind `EmailSender`. Only `simulated` ships (§8).
-4. **Repo name:** TBD. Needs its own `git init` before building.
+4. **Repo name:** TBD. Local repo initialized; no remote yet.
 5. **Verification is sticky** for the session. It resets to VERIFY_ID only if
    the caller switches identity (§4.1).
 6. **Failed verify attempt** = mismatch, re-ask still short, or refusal. The
    first ask is free. 3 → transfer (§4.1).
 7. **Models:** Haiku for call ①, Sonnet for call ⑤ and the email summary (§2).
+
+## 15. Implementation notes (where the build interpreted or deviated)
+
+1. **Replies are not token-streamed (§2).** §2 says to stream reply tokens,
+   and §7 says to block a leaking reply. Those conflict: a streamed token is
+   already on screen before the filter can run. The reply is generated in
+   full, filtered, then sent. The per-step trace still streams live over SSE.
+2. **"Re-ask still short" (§4.1)** counts only when the reply adds **no new
+   matching field**. Giving one correct field per turn is progress and isn't
+   punished. Refusals, contradictions, and empty re-asks count.
+3. **Even stricter than §4.1:** the reply model gets the number of fields
+   *provided*, not the number *matched*, so it can't reveal which were right.
+4. **Extra files:** `lib/sop/gates.ts`, `lib/sop/directives.ts`,
+   `lib/sop/view.ts`, `lib/sop/understanding.ts`, `lib/domain/representative.ts`,
+   `lib/llm/types.ts`. The prompts are `.ts` modules instead of `.md` so
+   they bundle without filesystem reads.
+5. **POST_PROCESS may call `get_claim_detail`.** The email summary needs the
+   claim it's summarizing.
+6. **Call ① sees the agent's previous message**, so it can resolve "yes" or
+   "the first one". Before verification that message has already passed the
+   leak filter, so it holds no claim data.
+7. **API key:** a UI header key or `ANTHROPIC_API_KEY`. With neither, the
+   chat fails fast with a typed error and a UI banner. The SDK's credential
+   profiles aren't used.
+8. **The `missing_required_material_alternatives` topic** has no `match_any`
+   in the fixture, so `ALTERNATIVES_MATCH` in `sop.config.ts` supplies phrases for it.
+9. **The scripted-LLM engine tests** (`tests/unit/engine.test.ts`) cover the
+   Margaret path, email send/skip, the pre-verification prompt isolation, the
+   leak replacement, the off-topic transfer, and rollback, all without an API key.
