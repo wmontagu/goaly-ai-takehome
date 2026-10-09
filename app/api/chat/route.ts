@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { claudeLlm } from "@/lib/llm";
+import { MissingApiKey } from "@/lib/llm/client";
 import { getSession } from "@/lib/session-store";
 import { runTurn, SessionBusy } from "@/lib/sop/engine";
 import { sessionView } from "@/lib/sop/view";
@@ -19,8 +20,7 @@ function errorCode(err: unknown): { code: string; message: string } {
   }
   if (err instanceof Anthropic.RateLimitError) return { code: "rate_limit", message: "Rate limited by the model API. Please try again shortly." };
   if (err instanceof Anthropic.APIError) return { code: "api", message: "I'm having trouble right now. Please try again in a moment." };
-  if (err instanceof Anthropic.AnthropicError) {
-    // Raised by the client when no credentials can be found at all.
+  if (err instanceof MissingApiKey) {
     return { code: "auth", message: "No Anthropic API key is configured. Add one in the test drawer or set ANTHROPIC_API_KEY." };
   }
   return { code: "internal", message: "Something went wrong. Your conversation state wasn't changed; please try again." };
