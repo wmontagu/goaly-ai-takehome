@@ -10,3 +10,4 @@ next-env.d.ts
 env/
 .venv/
 venv/
+.claude/scheduled_tasks.lock
