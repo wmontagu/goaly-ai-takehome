@@ -8,6 +8,7 @@ import { findPolicyholder } from "@/apps/insurance_claims/data";
 import { PERSONA, RULES, SAFE_VERIFY_FALLBACK, STEP_SUMMARY, ENDED_MESSAGE, TRANSFERRED_MESSAGE } from "@/apps/insurance_claims/prompts/respond";
 import { fitsHints, hasAnyHint } from "@/lib/domain/case-match";
 import { renderEmail, type EmailSummary } from "@/lib/domain/email-summary";
+import { backfillIdentity } from "@/lib/domain/pii-extract";
 import { deadlineInfo, joinDocuments } from "@/lib/domain/guidance";
 import type { Llm } from "@/lib/llm/types";
 import { endConversation, getClaimDetail, sendEmailSummary, transferToHuman } from "@/lib/tools";
@@ -153,9 +154,14 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
     const startPhase = session.phase;
     const lastAgent = [...session.transcript].reverse().find((t) => t.role === "assistant")?.text ?? null;
 
-    // ① UNDERSTAND
-    const u = await llm.understand({ phase: startPhase, lastAgentMessage: lastAgent, callerMessage: text });
+    // ① UNDERSTAND, with a deterministic backstop for structured PII the model missed.
+    const proposed = await llm.understand({ phase: startPhase, lastAgentMessage: lastAgent, callerMessage: text });
+    const backfill = backfillIdentity(text, proposed.identity);
+    const u = { ...proposed, identity: { ...proposed.identity, ...backfill } };
     addTrace(session, "understand", `scope=${u.scope} emotion=${u.emotion}${u.intent ? ` intent=${u.intent}` : ""}`, u);
+    if (Object.keys(backfill).length) {
+      addTrace(session, "understand", `code backfilled identity the model missed: ${Object.keys(backfill).join(", ")}`);
+    }
     session.transcript.push({ role: "user", text, turn: session.turn });
 
     // Identity switch after verification: back to VERIFY_ID (SPEC §4.1, sticky otherwise).
