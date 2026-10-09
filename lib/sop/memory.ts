@@ -49,6 +49,11 @@ export function createMemory(): SessionMemory {
 
 export type MemoryChange = { field: string; from: unknown; to: unknown };
 
+function sameName(a: string, b: string): boolean {
+  const n = (x: string) => x.toLowerCase().replace(/[^a-z]+/g, " ").trim();
+  return n(a) === n(b) || ` ${n(b)} `.includes(` ${n(a)} `);
+}
+
 function isPartialOf(next: string, prev: string): boolean {
   const n = next.toLowerCase().replace(/[^a-z0-9@.]+/g, " ").trim();
   const p = prev.toLowerCase().replace(/[^a-z0-9@.]+/g, " ").trim();
@@ -88,20 +93,24 @@ export function mergeUnderstanding(
     changes.push({ field, from, to });
   };
 
-  for (const f of IDENTITY_FIELDS) {
-    const v = u.identity[f]?.trim();
-    if (!v) continue;
-    // A partial repeat ("Margaret" after "Margaret Chen") is not a correction;
-    // keep the fuller value instead of downgrading it into a mismatch.
-    const prev = mem.identity[f];
-    if (prev && isPartialOf(v, prev)) continue;
-    set(`identity.${f}`, prev, v, () => (mem.identity[f] = v));
-  }
-
+  // Who is calling first, so the identity merge below can tell the rep's own
+  // name apart from the policyholder's.
   if (u.caller_role) set("caller_role", mem.caller_role, u.caller_role, () => (mem.caller_role = u.caller_role!));
   if (u.rep_name) set("rep_name", mem.rep_name, u.rep_name, () => (mem.rep_name = u.rep_name!));
   if (u.rep_relationship)
     set("rep_relationship", mem.rep_relationship, u.rep_relationship, () => (mem.rep_relationship = u.rep_relationship!));
+
+  for (const f of IDENTITY_FIELDS) {
+    const v = u.identity[f]?.trim();
+    if (!v) continue;
+    const prev = mem.identity[f];
+    // A partial repeat ("Margaret" after "Margaret Chen") is not a correction;
+    // keep the fuller value instead of downgrading it into a mismatch.
+    if (prev && isPartialOf(v, prev)) continue;
+    // A representative's own name is never the policyholder's name.
+    if (f === "name" && mem.caller_role === "representative" && mem.rep_name && sameName(v, mem.rep_name)) continue;
+    set(`identity.${f}`, prev, v, () => (mem.identity[f] = v));
+  }
 
   if (u.intent) {
     set("intent", mem.intent, u.intent, () => {

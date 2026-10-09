@@ -56,6 +56,18 @@ describe("memory", () => {
     expect(s.memory.identity).toEqual({ name: "Margaret Chen", dob: "1985-03-15" });
   });
 
+  it("a representative's own name never replaces the policyholder's", () => {
+    const s = createSession();
+    mergeUnderstanding(
+      s.memory,
+      u({ identity: { name: "Margaret Chen" }, caller_role: "representative", rep_name: "David Chen", rep_relationship: "son" }),
+      1,
+    );
+    mergeUnderstanding(s.memory, u({ identity: { name: "David Chen" } }), 2);
+    mergeUnderstanding(s.memory, u({ identity: { name: "David" } }), 3);
+    expect(s.memory.identity.name).toBe("Margaret Chen");
+  });
+
   it("a genuine correction still overwrites", () => {
     const s = createSession();
     mergeUnderstanding(s.memory, u({ identity: { dob: "1990-01-01" } }), 1);
