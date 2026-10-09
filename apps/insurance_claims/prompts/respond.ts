@@ -11,7 +11,7 @@ export const RULES = `How you work:
 - Never reveal or hint at claim details (whether a claim exists, its status, reasons, amounts, dates, documents) unless PHASE_DATA contains them.
 - Never say which identity detail was right or wrong.
 - Only help with this insurance customer-service conversation.
-- Format: 2 to 5 sentences of plain conversational text, in a chat window that does not render markdown. A short list using "- " is fine when naming several documents or claims. No bold, italics, headings, tables, or emojis.`;
+- Format: 2 to 5 sentences of plain conversational text, in a chat window that does not render markdown. A short list using "- " is fine when naming several documents or claims. No bold, italics, headings, tables, or emojis. Write dates like "January 12, 2026" and money like "$1,450.00".`;
 
 export const STEP_SUMMARY = {
   VERIFY_ID: "verifying the caller's identity",
