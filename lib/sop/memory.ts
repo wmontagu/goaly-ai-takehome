@@ -49,6 +49,12 @@ export function createMemory(): SessionMemory {
 
 export type MemoryChange = { field: string; from: unknown; to: unknown };
 
+function isPartialOf(next: string, prev: string): boolean {
+  const n = next.toLowerCase().replace(/[^a-z0-9@.]+/g, " ").trim();
+  const p = prev.toLowerCase().replace(/[^a-z0-9@.]+/g, " ").trim();
+  return n.length < p.length && ` ${p} `.includes(` ${n} `);
+}
+
 function hintsFrom(u: Understanding): CaseHints {
   const h = u.case_hints;
   const out: CaseHints = {};
@@ -84,7 +90,12 @@ export function mergeUnderstanding(
 
   for (const f of IDENTITY_FIELDS) {
     const v = u.identity[f]?.trim();
-    if (v) set(`identity.${f}`, mem.identity[f], v, () => (mem.identity[f] = v));
+    if (!v) continue;
+    // A partial repeat ("Margaret" after "Margaret Chen") is not a correction;
+    // keep the fuller value instead of downgrading it into a mismatch.
+    const prev = mem.identity[f];
+    if (prev && isPartialOf(v, prev)) continue;
+    set(`identity.${f}`, prev, v, () => (mem.identity[f] = v));
   }
 
   if (u.caller_role) set("caller_role", mem.caller_role, u.caller_role, () => (mem.caller_role = u.caller_role!));

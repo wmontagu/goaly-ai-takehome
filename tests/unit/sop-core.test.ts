@@ -49,6 +49,20 @@ describe("memory", () => {
     expect(changes.map((c) => c.field)).toContain("intent");
   });
 
+  it("a partial repeat of a name doesn't overwrite the full name", () => {
+    const s = createSession();
+    mergeUnderstanding(s.memory, u({ identity: { name: "Margaret Chen" } }), 1);
+    mergeUnderstanding(s.memory, u({ identity: { name: "Margaret", dob: "1985-03-15" } }), 2);
+    expect(s.memory.identity).toEqual({ name: "Margaret Chen", dob: "1985-03-15" });
+  });
+
+  it("a genuine correction still overwrites", () => {
+    const s = createSession();
+    mergeUnderstanding(s.memory, u({ identity: { dob: "1990-01-01" } }), 1);
+    mergeUnderstanding(s.memory, u({ identity: { dob: "1985-03-15" } }), 2);
+    expect(s.memory.identity.dob).toBe("1985-03-15");
+  });
+
   it("replace mode drops stale hints when the caller switches claims", () => {
     const s = createSession();
     mergeUnderstanding(s.memory, u({ case_hints: { status: "denied", case_type: "healthcare" } }), 1);

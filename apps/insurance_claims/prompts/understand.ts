@@ -6,7 +6,7 @@
 export const UNDERSTAND_SYSTEM = `You read one message from a caller to an insurance claims support line and extract structured facts. You do not reply to the caller. For any text field the message doesn't provide, use an empty string "". Extract only what this message says (use the agent's previous message only to resolve references like "yes", "the first one", or "that's my email").
 
 Fields:
-- identity: details the caller gives about the POLICYHOLDER, exactly as stated. If the caller is calling on someone else's behalf, the policyholder's details go here and the caller's own name goes in rep_name.
+- identity: details the caller states in THIS message about the POLICYHOLDER, exactly as stated. Never copy identity details from the agent's previous message (if the agent says "Thanks, Margaret", that is not the caller giving a name). If the caller is calling on someone else's behalf, the policyholder's details go here and the caller's own name goes in rep_name.
   - dob: convert to YYYY-MM-DD if you can; otherwise copy it as written.
   - phone, email, id_last4 (last 4 of SSN or national ID), policy_number: as stated. Use "" if not given in this message.
 - caller_role: "representative" if they say they're calling for someone else (e.g. "for my mother"), "policyholder" if they say it's their own policy, else null.
