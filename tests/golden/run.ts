@@ -10,7 +10,7 @@ import { claudeLlm } from "@/lib/llm";
 import { runTurn } from "@/lib/sop/engine";
 import { createSession, type Session } from "@/lib/sop/session";
 
-process.env.SOP_TODAY ||= "2026-02-20";
+process.env.SOP_TODAY ||= "2026-03-01";
 
 type Check = (s: Session) => string | null;
 type Golden = { name: string; consent?: ConsentScenarioName; lines: string[]; checks: Check[] };

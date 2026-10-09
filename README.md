@@ -44,7 +44,7 @@ in a header, and never stored or logged on the server.
 | `MODEL_UNDERSTAND` | no | `claude-haiku-5-5` | Call ①: classify + extract |
 | `MODEL_RESPOND` | no | `claude-sonnet-5-5` | Call ⑤: reply, plus the email summary |
 | `EMAIL_PROVIDER` | no | `simulated` | Email sender implementation |
-| `SOP_TODAY` | no | real date | Fixed "today" (YYYY-MM-DD) for deadline math. The fixture claims are from early 2026, so `2026-02-20` keeps CL-2048's appeal deadline in the future. |
+| `SOP_TODAY` | no | real date | Fixed "today" (YYYY-MM-DD) for deadline math. `2026-03-01` fits every fixture: after all claims were created and before both appeal deadlines. |
 
 ### Checks
 
@@ -58,7 +58,7 @@ ANTHROPIC_API_KEY=... npm run eval -- margaret                   # just one
 
 ```bash
 docker build -t sop-agent .
-docker run -e ANTHROPIC_API_KEY=sk-... -e SOP_TODAY=2026-02-20 -p 3000:3000 sop-agent
+docker run -e ANTHROPIC_API_KEY=sk-... -e SOP_TODAY=2026-03-01 -p 3000:3000 sop-agent
 ```
 
 ## Deploy (Render)
