@@ -30,7 +30,7 @@ function normalizeCaseId(raw: string): string {
   return digits ? `CL-${digits}` : raw.trim().toUpperCase();
 }
 
-function fitsHints(c: Claim, h: CaseHints): boolean {
+export function fitsHints(c: Claim, h: CaseHints): boolean {
   const [y, m] = c.created_at.split("-").map(Number);
   if (h.case_type && c.case_type !== h.case_type) return false;
   if (h.status && c.status !== h.status) return false;

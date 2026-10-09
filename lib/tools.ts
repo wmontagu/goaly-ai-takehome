@@ -28,7 +28,8 @@ export const TOOL_ALLOWLIST: Record<Phase, ToolName[]> = {
   VERIFY_ID: ["request_policyholder_consent", ...ALWAYS],
   RESOLVE_INTENT: ["get_claims", ...ALWAYS],
   PROCESS_CASE: ["get_claims", "get_claim_detail", "get_document_guidance", ...ALWAYS],
-  POST_PROCESS: ["send_email_summary", ...ALWAYS],
+  // The email summary needs the claim it's summarizing.
+  POST_PROCESS: ["get_claim_detail", "send_email_summary", ...ALWAYS],
   TRANSFERRED: [],
   ENDED: [],
 };
