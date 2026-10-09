@@ -1,0 +1,22 @@
+# Render blueprint. One persistent Node process holds all SOP session state
+# in memory, so this must stay at exactly one instance (no autoscaling).
+services:
+  - type: web
+    name: sop-claims-agent
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npx next start -p $PORT
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MODEL_UNDERSTAND
+        value: claude-haiku-5-5
+      - key: MODEL_RESPOND
+        value: claude-sonnet-5-5
+      - key: EMAIL_PROVIDER
+        value: simulated
+      - key: SOP_TODAY
+        value: "2026-02-20"
