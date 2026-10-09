@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findClaim } from "@/apps/insurance_claims/data";
-import { deadlineInfo, documentGuidance, matchFollowups } from "@/lib/domain/guidance";
+import { applicableFollowups, deadlineInfo, documentGuidance, matchFollowups } from "@/lib/domain/guidance";
 import { maskEmail, renderEmail } from "@/lib/domain/email-summary";
 
 const cl2048 = findClaim("P9", "CL-2048")!;
@@ -32,6 +32,18 @@ describe("matchFollowups", () => {
     const { matches, fallback } = matchFollowups("will it rain", "general_claim_question", cl2048);
     expect(matches).toEqual([]);
     expect(fallback).toMatch(/claim-specific rule/);
+  });
+});
+
+describe("applicableFollowups", () => {
+  it("includes every documents-required topic for a claim with documents, fully templated", () => {
+    const all = applicableFollowups(cl2048);
+    expect(all).toHaveLength(6);
+    expect(all.every((t) => !/\{\w+\}/.test(t.text))).toBe(true);
+  });
+
+  it("is empty for a claim with no documents needed", () => {
+    expect(applicableFollowups(findClaim("P9", "CL-2102")!)).toEqual([]);
   });
 });
 

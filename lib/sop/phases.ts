@@ -7,7 +7,7 @@
 import { claimFieldGlossary, findPolicyholder, guideline, type Claim } from "@/apps/insurance_claims/data";
 import { INTENT_TO_PATH, type WorkflowPath } from "@/apps/insurance_claims/sop.config";
 import { maskEmail } from "@/lib/domain/email-summary";
-import { deadlineInfo, matchFollowups, today } from "@/lib/domain/guidance";
+import { applicableFollowups, deadlineInfo, matchFollowups, today } from "@/lib/domain/guidance";
 import { getClaimDetail, getDocumentGuidance } from "@/lib/tools";
 import type { Missing } from "./gates";
 import type { Session } from "./session";
@@ -28,7 +28,8 @@ export function chooseProcessPath(session: Session, u: Understanding, userText: 
   const mem = session.memory;
   const claim = getClaimDetail(session, mem.selected_case_id!);
   const intent = u.intent ?? mem.intent ?? "general_claim_question";
-  const question = u.question || userText;
+  // Match fixture phrases against the caller's own words and the paraphrase.
+  const question = [userText, u.question].filter(Boolean).join(" | ");
 
   const followups = matchFollowups(question, intent, claim);
   let path: WorkflowPath = followups.matches.length ? "followup_qa" : INTENT_TO_PATH[intent];
@@ -49,6 +50,7 @@ export function chooseProcessPath(session: Session, u: Understanding, userText: 
     case_type_guidance: guidance.case_type_guidance,
     default_document_guidance: guideline.default_guidance.en,
     matched_followup_answers: followups.matches,
+    all_followup_guidance_for_this_claim: applicableFollowups(claim),
     followup_fallback: followups.matches.length ? undefined : followups.fallback,
     human_review_policy: guideline.claim_followup_settings.human_review_after_document_alternatives_exhausted.en,
     amount_field_glossary: path === "status_update" ? claimFieldGlossary : undefined,

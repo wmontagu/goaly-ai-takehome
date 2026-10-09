@@ -32,7 +32,7 @@ const PATH_DIRECTIVES: Record<WorkflowPath, string> = {
   document_guidance:
     "Explain how to prepare and submit each needed document using documents[].how_to_prepare, case_type_guidance, and default_document_guidance. If they can't get a document, use documents[].if_unavailable.",
   followup_qa:
-    "Answer the caller's question using matched_followup_answers (they are already filled in for this claim). Add document details only if relevant.",
+    "Answer the caller's question using matched_followup_answers (they are already filled in for this claim). Add document details only if relevant. all_followup_guidance_for_this_claim is background that stays true across turns; don't contradict it.",
 };
 
 function verifyDirectives(m: Missing, u: Understanding, isFirstAsk: boolean): string[] {

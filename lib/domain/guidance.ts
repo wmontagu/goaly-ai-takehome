@@ -77,6 +77,18 @@ export function matchFollowups(
   return { matches, fallback: guideline.claim_followup_fallback.en };
 }
 
+/**
+ * Every follow-up topic that applies to this claim, templated. Given to the
+ * reply on every PROCESS_CASE turn so the grounded facts stay the same
+ * across turns, instead of only the topic matched this turn.
+ */
+export function applicableFollowups(claim: Claim): FollowupAnswer[] {
+  const hasDocs = (claim.documents_needed ?? []).length > 0;
+  return guideline.claim_followup_guidance
+    .filter((t) => !t.requires_documents || hasDocs)
+    .map((t) => ({ topic: t.topic, text: fillTemplate(t.en, claim) }));
+}
+
 /** "Today" for deadline math: SOP_TODAY if set (demo/eval determinism), else the real date. */
 export function today(): string {
   const fixed = process.env.SOP_TODAY?.trim();
