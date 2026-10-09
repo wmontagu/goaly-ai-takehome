@@ -23,6 +23,8 @@ export type Missing =
       provided: IdentityField[];
       still_needed: number;
       failure_this_turn: VerifyFailure | null;
+      /** Something provided (this turn or earlier) contradicts the record. Never says which. */
+      has_mismatch: boolean;
       failed_attempts: number;
       offer_human: boolean;
       /** "SSN last 4" or "national ID last 4" once a record is plausible. */
@@ -121,6 +123,7 @@ function verifyGate(session: Session, { u, startedHere }: Ctx): GateResult {
       // reveal which fields were right.
       still_needed: hasMismatch ? GATES.minIdentityFields : Math.max(0, GATES.minIdentityFields - match.supplied.length),
       failure_this_turn: failure,
+      has_mismatch: hasMismatch,
       failed_attempts: mem.strikes.verify_fail,
       offer_human: mem.strikes.verify_fail >= GATES.verifyFailOfferHuman,
       id_label:

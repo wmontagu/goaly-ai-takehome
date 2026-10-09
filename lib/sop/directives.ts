@@ -39,12 +39,11 @@ function verifyDirectives(m: Missing, u: Understanding, isFirstAsk: boolean): st
   const d: string[] = [];
   switch (m.kind) {
     case "identity":
-      if (m.failure_this_turn === "mismatch") {
-        d.push("Say that the details provided don't match our records. Don't say which detail. Ask them to double-check, or to give a different detail instead.");
-      }
-      if (isFirstAsk && m.provided.length === 0) {
+      if (m.has_mismatch) {
+        d.push(`Say that the details provided so far don't all match our records. Don't say which detail, and don't give a count of how many more are needed. Ask them to double-check what they gave, or to give a different detail instead (any of: ${m.not_yet_provided.join(", ")}).`);
+      } else if (isFirstAsk && m.provided.length === 0) {
         d.push(`Greet the caller and explain you need to verify their identity before discussing any account or claim details. Ask for any ${m.still_needed} of: ${m.not_yet_provided.join(", ")}.`);
-      } else if (m.failure_this_turn !== "mismatch") {
+      } else {
         d.push(`Thank them for what they've provided so far. Ask for ${m.still_needed} more detail(s), any of: ${m.not_yet_provided.join(", ")}. Refer to the ID option as "${m.id_label}".`);
       }
       if (u.refuses_identity) {
