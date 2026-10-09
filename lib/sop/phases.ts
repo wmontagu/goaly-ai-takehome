@@ -28,7 +28,7 @@ export function chooseProcessPath(session: Session, u: Understanding, userText: 
   const mem = session.memory;
   const claim = getClaimDetail(session, mem.selected_case_id!);
   const intent = u.intent ?? mem.intent ?? "general_claim_question";
-  const question = u.question ?? userText;
+  const question = u.question || userText;
 
   const followups = matchFollowups(question, intent, claim);
   let path: WorkflowPath = followups.matches.length ? "followup_qa" : INTENT_TO_PATH[intent];

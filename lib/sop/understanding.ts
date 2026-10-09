@@ -1,7 +1,9 @@
 /**
  * The typed proposal call ① (UNDERSTAND) returns every turn (SPEC §3). The
- * LLM fills this; code decides what to do with it. Fields are nullable
- * rather than optional so the structured-output schema stays strict.
+ * LLM fills this; code decides what to do with it. Free-text fields use ""
+ * for "not given" rather than null: the structured-output API caps a schema
+ * at 16 union-typed (nullable) parameters, so only enums and numbers are
+ * nullable.
  */
 import { z } from "zod";
 import { INTENTS } from "@/apps/insurance_claims/sop.config";
@@ -9,7 +11,8 @@ import { INTENTS } from "@/apps/insurance_claims/sop.config";
 export const EMOTIONS = ["neutral", "frustrated", "anxious", "angry", "confused", "refusing"] as const;
 export type Emotion = (typeof EMOTIONS)[number];
 
-const s = () => z.string().nullable();
+/** Free text; "" when the caller didn't say it. */
+const s = () => z.string();
 
 export const UnderstandingSchema = z.object({
   identity: z.object({
@@ -49,13 +52,13 @@ export type Understanding = z.infer<typeof UnderstandingSchema>;
  * or false, so it can never advance a gate on its own.
  */
 export const SAFE_UNDERSTANDING: Understanding = {
-  identity: { name: null, dob: null, phone: null, email: null, id_last4: null, policy_number: null },
+  identity: { name: "", dob: "", phone: "", email: "", id_last4: "", policy_number: "" },
   caller_role: null,
-  rep_name: null,
-  rep_relationship: null,
+  rep_name: "",
+  rep_relationship: "",
   identity_switch: false,
   intent: null,
-  case_hints: { case_id: null, case_type: null, status: null, month: null, year: null },
+  case_hints: { case_id: "", case_type: null, status: null, month: null, year: null },
   emotion: "neutral",
   scope: "in_scope",
   is_injection: false,
@@ -64,5 +67,5 @@ export const SAFE_UNDERSTANDING: Understanding = {
   wants_human: false,
   wrap_up: false,
   email_decision: null,
-  question: null,
+  question: "",
 };
