@@ -1,0 +1,91 @@
+/**
+ * Context isolation (SPEC §7, layer 1): the ONLY data call ⑤ gets to see is
+ * what visibleData() builds for the current phase. Pre-verification that is
+ * field names and counts, never a record value. Claim data is fetched
+ * through the tool allowlist, so a wrong phase can't load it here either.
+ */
+import { claimFieldGlossary, findPolicyholder, guideline, type Claim } from "@/apps/insurance_claims/data";
+import { INTENT_TO_PATH, type WorkflowPath } from "@/apps/insurance_claims/sop.config";
+import { maskEmail } from "@/lib/domain/email-summary";
+import { deadlineInfo, matchFollowups, today } from "@/lib/domain/guidance";
+import { getClaimDetail, getDocumentGuidance } from "@/lib/tools";
+import type { Missing } from "./gates";
+import type { Session } from "./session";
+import type { Understanding } from "./understanding";
+
+export { TOOL_ALLOWLIST as toolAllowlist } from "@/lib/tools";
+
+export type ProcessContext = {
+  claim: Claim;
+  path: WorkflowPath;
+  data: Record<string, unknown>;
+  /** Amounts and dates the reply may mention (grounding check input). */
+  allowed: { amounts: string[]; dates: string[] };
+};
+
+/** Picks the bounded workflow path from the classifier's intent, validated in code (SPEC §4.3). */
+export function chooseProcessPath(session: Session, u: Understanding, userText: string): ProcessContext {
+  const mem = session.memory;
+  const claim = getClaimDetail(session, mem.selected_case_id!);
+  const intent = u.intent ?? mem.intent ?? "general_claim_question";
+  const question = u.question ?? userText;
+
+  const followups = matchFollowups(question, intent, claim);
+  let path: WorkflowPath = followups.matches.length ? "followup_qa" : INTENT_TO_PATH[intent];
+  // Denial explanation only makes sense for a denied claim.
+  if (path === "explain_denial" && claim.status !== "denied") path = "status_update";
+
+  const guidance = getDocumentGuidance(session, claim);
+  const deadline = deadlineInfo(claim);
+  const amounts = [claim.expected_reimbursement_amount, claim.allowed_max_amount, claim.net_pay, claim.net_fee];
+  const dates = [claim.created_at, today(), ...(claim.appeal_deadline ? [claim.appeal_deadline] : [])];
+
+  const data: Record<string, unknown> = {
+    today: today(),
+    workflow_path: path,
+    claim,
+    appeal_deadline: deadline,
+    documents: guidance.documents,
+    case_type_guidance: guidance.case_type_guidance,
+    default_document_guidance: guideline.default_guidance.en,
+    matched_followup_answers: followups.matches,
+    followup_fallback: followups.matches.length ? undefined : followups.fallback,
+    human_review_policy: guideline.claim_followup_settings.human_review_after_document_alternatives_exhausted.en,
+    amount_field_glossary: path === "status_update" ? claimFieldGlossary : undefined,
+  };
+  return { claim, path, data, allowed: { amounts, dates } };
+}
+
+export function visibleData(
+  session: Session,
+  missing: Missing | null,
+  process: ProcessContext | null,
+): Record<string, unknown> {
+  const mem = session.memory;
+  switch (session.phase) {
+    case "VERIFY_ID":
+      return {
+        caller_role: mem.caller_role,
+        accepted_identity_fields: "any 3 of: full name, date of birth, phone number, email address, SSN or national ID last 4, policy number",
+        gate: missing,
+      };
+    case "RESOLVE_INTENT":
+      return {
+        remembered_from_earlier: { intent: mem.intent ?? null, case_hints: mem.case_hints },
+        gate: missing,
+      };
+    case "PROCESS_CASE":
+      return process?.data ?? {};
+    case "POST_PROCESS": {
+      const holder = findPolicyholder(mem.verified_party_id!);
+      return {
+        email_on_file_masked: holder ? maskEmail(holder.email) : null,
+        email_offer: missing,
+        discussed: mem.discussed.map((d) => d.topic),
+        follow_ups: mem.follow_ups,
+      };
+    }
+    default:
+      return { reason: session.endReason ?? null };
+  }
+}
