@@ -67,6 +67,32 @@ describe("engine: Margaret happy path", () => {
   });
 });
 
+describe("engine: identity switch", () => {
+  it("restarts verification and hides the previous identity's claim conversation from the reply", async () => {
+    const s = createSession();
+    const { llm, prompts } = scripted([MARGARET_TURN_1, u({ identity_switch: true, identity: { name: "Ava Lopez" } })]);
+    const transcripts: string[][] = [];
+    const recording: Llm = {
+      ...llm,
+      respond: async (input) => {
+        transcripts.push(input.transcript.map((t) => t.content));
+        return llm.respond(input);
+      },
+    };
+    await runTurn(s, "turn 1", recording);
+    await runTurn(s, "Actually I'm calling about Ava Lopez's policy.", recording);
+
+    expect(s.phase).toBe("VERIFY_ID");
+    expect(s.memory.verified_party_id).toBeUndefined();
+    expect(s.memory.case_hints).toEqual({});
+    expect(s.memory.intent).toBeUndefined();
+    expect(s.memory.follow_ups).toEqual([]);
+    expect(transcripts[1]).toEqual(["Actually I'm calling about Ava Lopez's policy."]);
+    expect(prompts[1]).not.toMatch(/CL-\d+/);
+    expect(prompts[1]).toContain("Don't apologize for or retract");
+  });
+});
+
 describe("engine: verification gate", () => {
   it("keeps claim data out of the reply prompt before verification, and remembers the hint", async () => {
     const s = createSession();

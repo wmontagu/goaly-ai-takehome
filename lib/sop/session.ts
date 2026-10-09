@@ -30,6 +30,12 @@ export type Session = {
   phaseHistory: { from: Phase; to: Phase; reason: string; turn: number }[];
   memory: SessionMemory;
   transcript: TranscriptEntry[];
+  /**
+   * First turn the reply model may see. Moves forward on an identity switch
+   * so the new caller's context never contains the previous identity's
+   * claim conversation.
+   */
+  contextStartTurn: number;
   trace: TraceEvent[];
   outbox: OutboxEmail[];
   consentScenario: ConsentScenarioName;
@@ -54,6 +60,7 @@ export function createSession(consentScenario: ConsentScenarioName = "default"):
     trace: [],
     outbox: [],
     consentScenario,
+    contextStartTurn: 1,
     busy: false,
   };
 }

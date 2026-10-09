@@ -143,4 +143,14 @@ export function resetIdentity(mem: SessionMemory): void {
   mem.consent = { polls: 0 };
   mem.verify_asks = 0;
   mem.strikes.verify_fail = 0;
+  // Everything learned about the previous person's claims goes too, so it
+  // can't steer the new person's case resolution or end up in their email.
+  mem.intent = undefined;
+  mem.intent_source_turn = undefined;
+  mem.case_hints = {};
+  mem.case_hints_source_turn = undefined;
+  mem.discussed = [];
+  mem.follow_ups = [];
+  mem.resolve_no_progress = 0;
+  mem.email = { offered: false, ambiguous: 0 };
 }

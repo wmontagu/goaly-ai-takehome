@@ -21,6 +21,8 @@ export type DirectiveInput = {
   email: { result?: "sent" | "failed"; decision?: "send" | "skip" };
   /** Identity asks made before this turn (the first ask greets). */
   verifyAsks: number;
+  /** The caller switched to a different person this turn; verification restarted. */
+  identitySwitched: boolean;
   endReason?: string;
 };
 
@@ -94,6 +96,9 @@ export function buildDirectives(x: DirectiveInput): string[] {
     return d;
   }
 
+  if (x.identitySwitched) {
+    d.push("The caller now wants help with a different person's policy, so verification starts over for that person. Explain briefly that you can only discuss that policy after verifying it (or with the policyholder's authorization), then ask for that person's details. Don't apologize for or retract anything said earlier; earlier details were shared after a successful verification.");
+  }
   if (verifiedThisTurn) d.push("Start by briefly confirming they're verified (one short phrase, using their first name).");
 
   switch (x.phase) {

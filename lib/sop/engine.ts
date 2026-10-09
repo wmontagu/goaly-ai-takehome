@@ -26,7 +26,7 @@ export class SessionBusy extends Error {}
 
 export type TurnResult = { reply: string };
 
-type Snapshot = Pick<Session, "turn" | "phase" | "phaseHistory" | "memory" | "transcript" | "outbox" | "endReason">;
+type Snapshot = Pick<Session, "turn" | "phase" | "phaseHistory" | "memory" | "transcript" | "outbox" | "endReason" | "contextStartTurn">;
 
 function snapshot(s: Session): Snapshot {
   return structuredClone({
@@ -37,6 +37,7 @@ function snapshot(s: Session): Snapshot {
     transcript: s.transcript,
     outbox: s.outbox,
     endReason: s.endReason,
+    contextStartTurn: s.contextStartTurn,
   });
 }
 
@@ -165,8 +166,10 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
     session.transcript.push({ role: "user", text, turn: session.turn });
 
     // Identity switch after verification: back to VERIFY_ID (SPEC §4.1, sticky otherwise).
-    if (u.identity_switch && mem.verified_party_id) {
+    const identitySwitched = u.identity_switch && Boolean(mem.verified_party_id);
+    if (identitySwitched) {
       resetIdentity(mem);
+      session.contextStartTurn = session.turn;
       transition(session, "VERIFY_ID", "caller switched identity");
     }
 
@@ -249,6 +252,7 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
       email: emailState,
       endReason: session.endReason,
       verifyAsks: mem.verify_asks,
+      identitySwitched,
     });
     const gate = blockingGate(phase, missing);
     const tone = emotionDirective(
@@ -258,13 +262,14 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
     );
     const data = visibleData(session, missing, processCtx);
     const system = buildSystem(phase, transitions, directives, tone, data);
-    const transcript = session.transcript.map((t) => ({ role: t.role, content: t.text }));
+    const visibleTurns = session.transcript.filter((t) => t.turn >= session.contextStartTurn);
+    const transcript = visibleTurns.map((t) => ({ role: t.role, content: t.text }));
 
     let reply = await llm.respond({ system, transcript });
 
     // ⑥ FILTER
     if (!mem.verified_party_id) {
-      const leak = leakCheck(reply, session.transcript.filter((t) => t.role === "user").map((t) => t.text));
+      const leak = leakCheck(reply, visibleTurns.filter((t) => t.role === "user").map((t) => t.text));
       if (leak.leaked) {
         addTrace(session, "leak_blocked", `blocked pre-verification reply (${leak.hits.join(", ")})`, { blocked: reply });
         reply = SAFE_VERIFY_FALLBACK;
