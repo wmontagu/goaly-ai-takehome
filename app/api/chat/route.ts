@@ -13,13 +13,25 @@ export const dynamic = "force-dynamic";
 /** Optional per-request key from the UI. Never stored or logged. */
 const KEY_HEADER = "x-anthropic-api-key";
 
-function errorCode(err: unknown): { code: string; message: string } {
+/** Says which key was used, since a pasted key silently overrides the server's. */
+function errorCode(err: unknown, keySource: "test drawer" | "server"): { code: string; message: string } {
   if (err instanceof SessionBusy) return { code: "busy", message: "Still working on your last message." };
   if (err instanceof Anthropic.AuthenticationError) {
-    return { code: "auth", message: "The Anthropic API key is missing or invalid. Add one in the test drawer or set ANTHROPIC_API_KEY." };
+    return {
+      code: "auth",
+      message:
+        keySource === "test drawer"
+          ? "Anthropic rejected the key pasted in the test drawer. Fix it, or clear the field to use the server's key."
+          : "Anthropic rejected the server's ANTHROPIC_API_KEY. Check it in the host's environment settings, or paste a key in the test drawer.",
+    };
+  }
+  if (err instanceof Anthropic.PermissionDeniedError) {
+    return { code: "auth", message: `The ${keySource} key can't use this model: ${err.message}` };
   }
   if (err instanceof Anthropic.RateLimitError) return { code: "rate_limit", message: "Rate limited by the model API. Please try again shortly." };
-  if (err instanceof Anthropic.APIError) return { code: "api", message: "I'm having trouble right now. Please try again in a moment." };
+  if (err instanceof Anthropic.APIError) {
+    return { code: "api", message: `The model API returned an error${err.status ? ` (${err.status})` : ""}: ${err.message}` };
+  }
   if (err instanceof MissingApiKey) {
     return { code: "auth", message: "No Anthropic API key is configured. Add one in the test drawer or set ANTHROPIC_API_KEY." };
   }
@@ -61,7 +73,10 @@ export async function POST(req: NextRequest) {
         const { reply } = await runTurn(session, text, llm);
         send("reply", { text: reply });
       } catch (err) {
-        send("error", errorCode(err));
+        const keySource = apiKey?.trim() ? "test drawer" : "server";
+        // Logged for the host's log viewer. Anthropic error messages never contain the key.
+        console.error(`[chat] turn failed (key from ${keySource}):`, err instanceof Error ? `${err.name}: ${err.message}` : err);
+        send("error", errorCode(err, keySource));
       } finally {
         session.traceSink = undefined;
         send("state", sessionView(session));
