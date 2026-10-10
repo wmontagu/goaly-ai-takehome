@@ -6,6 +6,7 @@ import { Chat, type ChatMessage } from "./components/Chat";
 import { SCRIPTS, type Script } from "./components/scripts";
 import { StatePanel } from "./components/StatePanel";
 import { TracePanel } from "./components/TracePanel";
+import { useCallMode } from "./components/useCallMode";
 
 const KEY_STORAGE = "sop-agent-api-key";
 
@@ -61,13 +62,21 @@ export default function Home() {
   const [showTrace, setShowTrace] = useState(true);
   const [script, setScript] = useState<{ s: Script; next: number } | null>(null);
 
+  const ended = view?.phase === "TRANSFERRED" || view?.phase === "ENDED" ? view.phase : null;
+  const call = useCallMode({
+    onHeard: (heard) => void send(heard),
+    canListen: () => !pending && !ended,
+  });
+  const stopCall = call.stop;
+
   const start = useCallback(async (consentScenario: string, notice?: string) => {
+    stopCall();
     const v = await createSession(consentScenario);
     setView(v);
     setMessages(notice ? [{ role: "system", text: notice }] : []);
     setTrace([]);
     setInput("");
-  }, []);
+  }, [stopCall]);
 
   useEffect(() => {
     void (async () => {
@@ -76,15 +85,14 @@ export default function Home() {
     })();
   }, [start]);
 
-  const ended = view?.phase === "TRANSFERRED" || view?.phase === "ENDED" ? view.phase : null;
-
   function restart() {
     setScript(null);
     void start(consent);
   }
 
-  async function send() {
-    const text = input.trim();
+  /** Sends the input box, or `spoken` when the caller talked in Call mode. */
+  async function send(spoken?: string) {
+    const text = (spoken ?? input).trim();
     if (!text || !view || pending) return;
     setInput("");
     setPending(true);
@@ -96,7 +104,10 @@ export default function Home() {
     try {
       await sendMessage(view.id, text, apiKey, {
         onTrace: (e) => setTrace((t) => [...t, e]),
-        onReply: (reply) => setMessages((m) => [...m, { role: "assistant", text: reply }]),
+        onReply: (reply) => {
+          setMessages((m) => [...m, { role: "assistant", text: reply }]);
+          call.speak(reply);
+        },
         onState: (s) => {
           setView(s);
           setTrace(s.trace);
@@ -136,6 +147,11 @@ export default function Home() {
         <h1 className="text-sm font-semibold">SOP Claims Agent</h1>
         <span className="text-xs text-neutral-500">VERIFY_ID → RESOLVE_INTENT → PROCESS_CASE → POST_PROCESS</span>
         <div className="ml-auto flex gap-2">
+          {call.supported.speak && (
+            <Toggle on={call.enabled} onClick={call.toggle}>
+              📞 Call mode
+            </Toggle>
+          )}
           <Toggle on={drawerOpen} onClick={() => setDrawerOpen((o) => !o)}>
             Test drawer
           </Toggle>
@@ -227,6 +243,16 @@ export default function Home() {
             onSend={() => void send()}
             ended={ended}
             onRestart={restart}
+            call={
+              call.enabled
+                ? {
+                    status: call.status,
+                    error: call.error,
+                    canListen: call.supported.listen,
+                    onMic: () => (call.status === "listening" ? call.stop() : call.listen()),
+                  }
+                : null
+            }
           />
         </section>
         {showState && (

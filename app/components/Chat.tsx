@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { SessionView } from "./api";
+import type { CallStatus } from "./useCallMode";
 
 export type ChatMessage = { role: "user" | "assistant" | "system"; text: string };
 
@@ -27,6 +28,7 @@ export function Chat({
   onSend,
   ended,
   onRestart,
+  call,
 }: {
   messages: ChatMessage[];
   outbox: SessionView["outbox"];
@@ -37,6 +39,8 @@ export function Chat({
   /** Set once the SOP reaches a terminal phase: the input is replaced by an end card. */
   ended: "TRANSFERRED" | "ENDED" | null;
   onRestart: () => void;
+  /** Present while Call mode is on. */
+  call: { status: CallStatus; error: string | null; canListen: boolean; onMic: () => void } | null;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -93,27 +97,56 @@ export function Chat({
           </button>
         </div>
       ) : (
-        <form
-          className="flex gap-2 border-t border-neutral-800 p-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSend();
-          }}
-        >
-          <input
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-sky-500"
-            placeholder="Type a message…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-            disabled={pending || !input.trim()}
+        <>
+          {call && (
+            <div className="border-t border-neutral-800 px-3 pt-2 text-xs text-neutral-400">
+              {call.error ??
+                (call.status === "speaking"
+                  ? "Agent is speaking… tap the mic to interrupt."
+                  : call.status === "listening"
+                    ? "Listening… speak now."
+                    : call.canListen
+                      ? "Tap the mic to talk, or type."
+                      : "This browser can't listen, so type your replies. The agent still speaks. (Chrome or Edge can do both.)")}
+            </div>
+          )}
+          <form
+            className="flex gap-2 border-t border-neutral-800 p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSend();
+            }}
           >
-            Send
-          </button>
-        </form>
+            <input
+              className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-sky-500"
+              placeholder="Type a message…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            {call?.canListen && (
+              <button
+                type="button"
+                aria-label={call.status === "listening" ? "Stop listening" : "Talk"}
+                className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                  call.status === "listening"
+                    ? "animate-pulse bg-red-600 text-white"
+                    : "border border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                }`}
+                onClick={call.onMic}
+                disabled={pending}
+              >
+                {call.status === "listening" ? "● Listening" : "🎤"}
+              </button>
+            )}
+            <button
+              type="submit"
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              disabled={pending || !input.trim()}
+            >
+              Send
+            </button>
+          </form>
+        </>
       )}
     </div>
   );
