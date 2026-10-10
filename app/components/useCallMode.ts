@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { spokenChunks } from "./speech-text";
 
 /**
  * Voice for "Call mode". The agent's replies are read aloud with the
@@ -32,25 +33,6 @@ function recognitionCtor(): (new () => Recognition) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-/** Markdown and list markers read badly aloud. */
-function speakable(text: string): string {
-  return text
-    .replace(/[*_#`]/g, "")
-    .replace(/^\s*[-•]\s+/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Chrome cuts off utterances after ~15s, so speak sentence by sentence. */
-function sentences(text: string): string[] {
-  return (
-    text
-      .match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)
-      ?.map((s) => s.trim())
-      .filter(Boolean) ?? []
-  );
-}
-
 function pickVoice(): SpeechSynthesisVoice | null {
   const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
   const preferred = [/natural/i, /google us english/i, /samantha/i, /aria|jenny/i];
@@ -79,7 +61,7 @@ const END_SILENCE_MID_MS = 3000;
 const PAUSE_HINT_MS = 700; // after this much quiet, tell the caller it will send soon
 const NO_SPEECH_MS = 8000; // give up if the caller never starts talking
 const MAX_TURN_MS = 30000;
-const SPEECH_RATE = 1.25; // agent voice speed (1 = the voice's normal pace)
+const SPEECH_RATE = 2; // agent voice speed (1 = the voice's normal pace)
 const PARTIAL_EVERY_MS = 800; // how often the live transcript refreshes
 
 export type CallStatus = "idle" | "speaking" | "listening" | "paused" | "transcribing";
@@ -352,7 +334,7 @@ export function useCallMode({
       if (!enabledRef.current || !("speechSynthesis" in window)) return;
       stop();
       const gen = generation.current;
-      const parts = sentences(speakable(text));
+      const parts = spokenChunks(text);
       if (!parts.length) return;
       const voice = pickVoice();
       setStatus("speaking");
