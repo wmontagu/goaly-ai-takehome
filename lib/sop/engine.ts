@@ -14,7 +14,7 @@ import type { Llm } from "@/lib/llm/types";
 import { endConversation, getClaimDetail, sendEmailSummary, transferToHuman } from "@/lib/tools";
 import { addTrace } from "@/lib/trace";
 import { buildDirectives } from "./directives";
-import { groundingCheck, leakCheck } from "./filter";
+import { groundingCheck, idCheck, leakCheck } from "./filter";
 import { GATE_FOR, type Missing } from "./gates";
 import { mergeUnderstanding, newCaseHints, resetIdentity } from "./memory";
 import { chooseProcessPath, visibleData, type ProcessContext } from "./phases";
@@ -277,14 +277,18 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
         addTrace(session, "leak_blocked", `blocked pre-verification reply (${leak.hits.join(", ")})`, { blocked: reply });
         reply = SAFE_VERIFY_FALLBACK;
       }
-    } else if (processCtx) {
-      let check = groundingCheck(reply, processCtx.allowed);
-      if (check.ungrounded.length) {
-        addTrace(session, "grounding_flag", `ungrounded: ${check.ungrounded.join(", ")}; regenerating once`);
-        const strict = `${system}\n\nYOUR PREVIOUS DRAFT mentioned ${check.ungrounded.join(", ")}, which is not in PHASE_DATA. Rewrite without any amount or date that isn't in PHASE_DATA.`;
+    } else {
+      // After verification: amounts and dates must come from the claim data,
+      // and policy numbers / claim IDs must be the caller's own.
+      const partyId = mem.verified_party_id;
+      const ungrounded = (r: string) => [...(processCtx ? groundingCheck(r, processCtx.allowed).ungrounded : []), ...idCheck(r, partyId)];
+      let bad = ungrounded(reply);
+      if (bad.length) {
+        addTrace(session, "grounding_flag", `ungrounded: ${bad.join(", ")}; regenerating once`);
+        const strict = `${system}\n\nYOUR PREVIOUS DRAFT mentioned ${bad.join(", ")}, which is not in PHASE_DATA. Rewrite without any amount, date, policy number, or claim ID that isn't in PHASE_DATA.`;
         reply = await llm.respond({ system: strict, transcript });
-        check = groundingCheck(reply, processCtx.allowed);
-        if (check.ungrounded.length) addTrace(session, "grounding_flag", `still ungrounded after retry: ${check.ungrounded.join(", ")}`);
+        bad = ungrounded(reply);
+        if (bad.length) addTrace(session, "grounding_flag", `still ungrounded after retry: ${bad.join(", ")}`);
       }
     }
 

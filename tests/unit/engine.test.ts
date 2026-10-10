@@ -210,6 +210,20 @@ describe("engine: verification gate", () => {
     expect(wrongName).toBe(wrongDob);
   });
 
+  it("gives the verified caller's real policy number and rewrites an invented one", async () => {
+    const s = createSession();
+    let calls = 0;
+    const { llm, prompts } = scripted(
+      [MARGARET_TURN_1, u({ intent: "general_claim_question" })],
+      () => (++calls === 2 ? "Your policy number is POL-55821." : calls === 3 ? "Your policy number is POL-9921." : "ok"),
+    );
+    await runTurn(s, "I'm the policyholder. My name is Margaret Chen ...", llm);
+    const { reply } = await runTurn(s, "What's my policy number again?", llm);
+    expect(prompts[1]).toContain('"policy_number": "POL-9921"');
+    expect(s.trace.some((e) => e.kind === "grounding_flag" && e.summary.includes("POL-55821"))).toBe(true);
+    expect(reply).toBe("Your policy number is POL-9921.");
+  });
+
   it("rolls state back if the model call fails mid-turn", async () => {
     const s = createSession();
     const llm: Llm = {

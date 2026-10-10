@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groundingCheck, leakCheck } from "@/lib/sop/filter";
+import { groundingCheck, idCheck, leakCheck } from "@/lib/sop/filter";
 import { mergeUnderstanding } from "@/lib/sop/memory";
 import { createSession } from "@/lib/sop/session";
 import { canTransition, IllegalTransition, transition } from "@/lib/sop/state-machine";
@@ -116,5 +116,15 @@ describe("groundingCheck (post-verification)", () => {
 
   it("flags invented amounts and dates", () => {
     expect(groundingCheck("You'll get $900 by April 2.", allowed).ungrounded).toEqual(["$900", "april 2"]);
+  });
+});
+
+describe("idCheck: policy numbers and claim IDs must be the verified caller's own", () => {
+  it("allows Margaret's own IDs, in any spacing", () => {
+    expect(idCheck("Your policy POL-9921 covers CL-2048 and cl 2102. Policy number: 9921.", "P9")).toEqual([]);
+  });
+  it("flags invented or someone else's IDs", () => {
+    expect(idCheck("Your policy number is POL-55821, and CL-3001 is closed.", "P9").sort()).toEqual(["CL-3001", "POL-55821"]);
+    expect(idCheck("Your policy number is 55821.", "P9")).toEqual(["55821"]);
   });
 });

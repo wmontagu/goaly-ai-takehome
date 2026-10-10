@@ -7,8 +7,10 @@
  *    policyholder data the caller didn't type themselves.
  *  - groundingCheck: after verification, flag dollar amounts and dates that
  *    aren't in the data the reply was given.
+ *  - idCheck: after verification, flag policy numbers and claim IDs that
+ *    aren't the verified caller's own (the model inventing "POL-55821").
  */
-import { claims, policyholders, representatives } from "@/apps/insurance_claims/data";
+import { claims, claimsForParty, findPolicyholder, policyholders, representatives } from "@/apps/insurance_claims/data";
 
 const MONTH_NAMES = [
   "january", "february", "march", "april", "may", "june",
@@ -88,6 +90,26 @@ export function leakCheck(reply: string, callerTexts: string[]): LeakCheck {
   if (/\$\s?\d/.test(r)) hits.add("dollar amount");
 
   return { leaked: hits.size > 0, hits: [...hits] };
+}
+
+const idKey = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/** Policy numbers and claim IDs in the reply that don't belong to the verified caller. */
+export function idCheck(reply: string, partyId: string): string[] {
+  const holder = findPolicyholder(partyId);
+  const allowed = new Set([holder?.policy_number ?? "", ...claimsForParty(partyId).map((c) => c.case_id)].filter(Boolean).map(idKey));
+  const policyDigits = holder ? idKey(holder.policy_number).replace(/\D/g, "") : "";
+  const bad = new Set<string>();
+  // Anything shaped like an ID: POL-9921, CL-2048, "POL 9921".
+  for (const m of reply.matchAll(/\b(?:POL|CL)[\s-]?\d{3,}\b/gi)) {
+    if (!allowed.has(idKey(m[0]))) bad.add(m[0]);
+  }
+  // A policy number stated without the prefix: "your policy number is 55821".
+  for (const m of reply.matchAll(/policy (?:number|no\.?|#)\s*(?:is|of|:)?\s*#?\s*([A-Z]*[\s-]?\d[\d-]{2,})/gi)) {
+    const k = idKey(m[1]);
+    if (!allowed.has(k) && k.replace(/\D/g, "") !== policyDigits) bad.add(m[1].trim());
+  }
+  return [...bad];
 }
 
 export type GroundingCheck = { ungrounded: string[] };

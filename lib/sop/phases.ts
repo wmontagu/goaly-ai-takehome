@@ -58,6 +58,12 @@ export function chooseProcessPath(session: Session, u: Understanding, userText: 
   return { claim, path, data, allowed: { amounts, dates } };
 }
 
+/** The verified caller's own account basics, so "what's my policy number?" has a real answer. */
+function verifiedAccount(session: Session) {
+  const holder = session.memory.verified_party_id ? findPolicyholder(session.memory.verified_party_id) : undefined;
+  return holder ? { policyholder_name: holder.name, policy_number: holder.policy_number } : null;
+}
+
 export function visibleData(
   session: Session,
   missing: Missing | null,
@@ -73,14 +79,16 @@ export function visibleData(
       };
     case "RESOLVE_INTENT":
       return {
+        account: verifiedAccount(session),
         remembered_from_earlier: { intent: mem.intent ?? null, case_hints: mem.case_hints },
         gate: missing,
       };
     case "PROCESS_CASE":
-      return process?.data ?? {};
+      return { account: verifiedAccount(session), ...(process?.data ?? {}) };
     case "POST_PROCESS": {
       const holder = findPolicyholder(mem.verified_party_id!);
       return {
+        account: verifiedAccount(session),
         email_on_file_masked: holder ? maskEmail(holder.email) : null,
         email_offer: missing,
         discussed: mem.discussed.map((d) => d.topic),
