@@ -79,6 +79,7 @@ const END_SILENCE_MID_MS = 3000;
 const PAUSE_HINT_MS = 700; // after this much quiet, tell the caller it will send soon
 const NO_SPEECH_MS = 8000; // give up if the caller never starts talking
 const MAX_TURN_MS = 30000;
+const SPEECH_RATE = 1.25; // agent voice speed (1 = the voice's normal pace)
 const PARTIAL_EVERY_MS = 800; // how often the live transcript refreshes
 
 export type CallStatus = "idle" | "speaking" | "listening" | "paused" | "transcribing";
@@ -358,7 +359,7 @@ export function useCallMode({
       parts.forEach((part, i) => {
         const u = new SpeechSynthesisUtterance(part);
         if (voice) u.voice = voice;
-        u.rate = 1.05;
+        u.rate = SPEECH_RATE;
         if (i === parts.length - 1) {
           u.onend = () => {
             if (gen !== generation.current) return;
