@@ -96,6 +96,7 @@ in a header, and never stored or logged on the server.
 | Var | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | yes (or supplied via the UI) | none | Model access |
+| `ANTHROPIC_WORKSPACE_ID` | no | none | Only for a server key that isn't scoped to a workspace (Anthropic then requires a workspace ID per request) |
 | `MODEL_UNDERSTAND` | no | `claude-haiku-5-5` | Call ①: classify + extract |
 | `MODEL_RESPOND` | no | `claude-sonnet-5-5` | Call ⑤: reply, plus the email summary |
 | `DEEPGRAM_API_KEY` | no | none | Call mode speech-to-text. Without it, Call mode uses the browser's own recognition (Chrome/Edge only) |

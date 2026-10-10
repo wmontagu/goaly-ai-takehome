@@ -12,6 +12,8 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: ANTHROPIC_WORKSPACE_ID
+        sync: false
       - key: DEEPGRAM_API_KEY
         sync: false
       - key: MODEL_UNDERSTAND

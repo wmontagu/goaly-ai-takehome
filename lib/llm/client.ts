@@ -14,7 +14,11 @@ export class MissingApiKey extends Error {}
  * with a typed error so the UI can show a clear "add a key" banner.
  */
 export function getClient(apiKeyOverride?: string | null): Anthropic {
-  const key = apiKeyOverride?.trim() || process.env.ANTHROPIC_API_KEY?.trim();
+  const override = apiKeyOverride?.trim();
+  const key = override || process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new MissingApiKey("No Anthropic API key configured");
-  return new Anthropic({ apiKey: key });
+  // A key that isn't scoped to a workspace must name one per request. This
+  // belongs to the server's key only, never to a key pasted in the UI.
+  const workspace = override ? undefined : process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+  return new Anthropic({ apiKey: key, defaultHeaders: workspace ? { "anthropic-workspace-id": workspace } : undefined });
 }
