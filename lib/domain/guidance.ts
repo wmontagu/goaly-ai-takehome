@@ -4,8 +4,26 @@
  * the reply says about documents, timing, or deadlines comes from here.
  */
 import { guideline, type Claim } from "@/apps/insurance_claims/data";
-import { canonicalDocName } from "@/apps/insurance_claims/doc-aliases";
-import { ALTERNATIVES_MATCH, type Intent } from "@/apps/insurance_claims/sop.config";
+import { FOLLOWUP_MATCH_FALLBACK, type Intent } from "@/apps/insurance_claims/sop.config";
+
+/** Every document the guide has a formal entry for. */
+const GUIDE_DOCS = [...new Set([...Object.keys(guideline.document_guidance), ...Object.keys(guideline.document_alternative_guidance)])].filter(
+  (k) => k !== "default",
+);
+
+/**
+ * Claims name documents loosely ("office note"); the guide uses formal names
+ * ("treating provider office note"). Resolve to the guide entry whose name
+ * contains every word of the claim's name, preferring the most specific
+ * (shortest) one. Decided in code from the data, never by an LLM guess.
+ */
+export function canonicalDocName(name: string): string {
+  const key = name.trim().toLowerCase();
+  if (GUIDE_DOCS.includes(key)) return key;
+  const words = key.split(/\s+/);
+  const matches = GUIDE_DOCS.filter((doc) => words.every((w) => doc.split(/\s+/).includes(w)));
+  return matches.sort((a, b) => a.length - b.length)[0] ?? key;
+}
 
 export type DocumentGuidance = {
   /** As written on the claim. */
@@ -40,14 +58,16 @@ export function joinDocuments(docs: string[]): string {
   return `${withArticle.slice(0, -1).join(", ")} and ${withArticle[withArticle.length - 1]}`;
 }
 
+/**
+ * Fills a guide template: {case_id} and {documents} from the claim, and any
+ * other {placeholder} from the guide's own setting of the same name.
+ */
 export function fillTemplate(text: string, claim: Claim): string {
-  return text
-    .replaceAll("{case_id}", claim.case_id)
-    .replaceAll("{documents}", joinDocuments(claim.documents_needed ?? []))
-    .replaceAll(
-      "{average_processing_time_after_submission}",
-      guideline.claim_followup_settings.average_processing_time_after_submission.en,
-    );
+  return text.replace(/\{(\w+)\}/g, (whole, key: string) => {
+    if (key === "case_id") return claim.case_id;
+    if (key === "documents") return joinDocuments(claim.documents_needed ?? []);
+    return guideline.claim_followup_settings[key]?.en ?? whole;
+  });
 }
 
 export type FollowupAnswer = { topic: string; text: string };
@@ -69,7 +89,7 @@ export function matchFollowups(
     .filter((t) => !t.requires_documents || hasDocs)
     .filter((t) => !intent || t.intent_hints.includes(intent))
     .filter((t) => {
-      const phrases = t.match_any ?? (t.topic === "missing_required_material_alternatives" ? ALTERNATIVES_MATCH : []);
+      const phrases = t.match_any ?? FOLLOWUP_MATCH_FALLBACK[t.topic] ?? [];
       return phrases.some((p) => q.includes(p));
     })
     .map((t) => ({ topic: t.topic, text: fillTemplate(t.en, claim) }));

@@ -106,7 +106,7 @@ export function mergeUnderstanding(
     const v = u.identity[f]?.trim();
     if (!v) continue;
     const prev = mem.identity[f];
-    // A partial repeat ("Margaret" after "Margaret Chen") is not a correction;
+    // A partial repeat ("Alex" after "Alex Doe") is not a correction;
     // keep the fuller value instead of downgrading it into a mismatch.
     if (prev && isPartialOf(v, prev)) continue;
     // A representative's own name is never the policyholder's name.

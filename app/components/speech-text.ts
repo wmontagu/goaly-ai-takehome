@@ -7,7 +7,7 @@
  */
 
 const LIST_MARKER = /^\s*(?:[-*•]|\d+[.)])\s+/;
-/** A spaced hyphen, or an en/em dash: "denied — here's why". Not CL-2048 or 2026-03-18. */
+/** A spaced hyphen, or an en/em dash: "denied — here's why". Not "AB-1234" or "2030-01-15". */
 const DASH_PAUSE = /\s+[-–—]\s+|\s*[—–]\s*/;
 
 export function spokenChunks(text: string): string[] {

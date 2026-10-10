@@ -33,7 +33,7 @@ export type Retrieved = { id: string; score: number; text: string };
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-/** "2026-01-12" → "January 12, 2026", so "my claim from January" can match. */
+/** "2030-01-15" → "January 15, 2030", so "my claim from January" can match. */
 function dateInWords(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return m >= 1 && m <= 12 ? `${MONTHS[m - 1]} ${d}, ${y}` : iso;

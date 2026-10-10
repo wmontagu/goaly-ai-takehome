@@ -74,19 +74,22 @@ export const GATE_RATIONALES = {
 } as const;
 
 /**
- * `missing_required_material_alternatives` has no `match_any` in the
- * fixture, so these phrases stand in for it.
+ * Trigger phrases for follow-up topics whose fixture entry has no
+ * `match_any`, keyed by topic. This is configuration for this data set, so it
+ * lives here with the rest of its settings, not in the generic engine.
  */
-export const ALTERNATIVES_MATCH = [
-  "don't have",
-  "dont have",
-  "do not have",
-  "can't get",
-  "cant get",
-  "cannot get",
-  "not available",
-  "lost",
-  "alternative",
-  "instead",
-  "substitute",
-];
+export const FOLLOWUP_MATCH_FALLBACK: Record<string, readonly string[]> = {
+  missing_required_material_alternatives: [
+    "don't have",
+    "dont have",
+    "do not have",
+    "can't get",
+    "cant get",
+    "cannot get",
+    "not available",
+    "lost",
+    "alternative",
+    "instead",
+    "substitute",
+  ],
+};

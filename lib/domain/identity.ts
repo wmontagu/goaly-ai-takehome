@@ -103,7 +103,7 @@ export function fieldMatches(field: IdentityField, value: string, rec: Policyhol
     case "policy_number": {
       const v = normalizePolicy(value);
       const stored = normalizePolicy(rec.policy_number);
-      // "9921" alone still identifies POL-9921.
+      // The digits alone ("1234") still identify policy "ABC-1234".
       return v === stored || (v.length >= 4 && /^\d+$/.test(v) && stored.endsWith(v));
     }
   }

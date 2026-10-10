@@ -62,7 +62,7 @@ function protectedValues(): string[] {
 
 const PROTECTED = protectedValues();
 
-/** Letter prefixes of every reference number in the data, e.g. ["CL", "POL"] for "CL-2048"/"POL-9921". */
+/** Letter prefixes of every reference number in the data, e.g. ["AB", "XYZ"] for "AB-1234"/"XYZ-5678". */
 const ID_PREFIXES = [
   ...new Set(
     [...claims.map((c) => c.case_id), ...policyholders.map((p) => p.policy_number)]
@@ -79,7 +79,7 @@ function referenceNumbers(text: string): string[] {
 }
 
 function containsValue(haystack: string, value: string): boolean {
-  // Word-ish boundaries so "4472" doesn't fire inside "144720".
+  // Word-ish boundaries so "1234" doesn't fire inside "512345".
   const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(haystack);
 }
@@ -88,7 +88,7 @@ export type LeakCheck = { leaked: boolean; hits: string[] };
 
 /**
  * `callerTexts` are everything the caller has typed this session. Echoing
- * their own words back ("Thanks, Margaret Chen") is a confirmation, not a
+ * their own words back ("Thanks, Alex Doe") is a confirmation, not a
  * leak, so those values are excluded.
  */
 export function leakCheck(reply: string, callerTexts: string[]): LeakCheck {
