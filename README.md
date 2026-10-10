@@ -107,8 +107,8 @@ in a header, and never stored or logged on the server.
 
 ```bash
 npm run typecheck && npm run lint && npm test && npm run build   # the full gate
-ANTHROPIC_API_KEY=... npm run eval                               # 13 golden conversations, real models
-ANTHROPIC_API_KEY=... npm run eval -- margaret                   # just one
+npm run eval                                                     # golden conversations, real models (key from .env)
+npm run eval -- margaret                                         # just one
 ```
 
 ## Docker

@@ -2,15 +2,25 @@
  * Golden conversations (SPEC §11), run against the real models. Each script
  * asserts on SOP state and trace, never on exact wording.
  *
- *   ANTHROPIC_API_KEY=... npm run eval            # all
- *   ANTHROPIC_API_KEY=... npm run eval -- margaret  # names containing "margaret"
+ *   npm run eval                 # all (reads the key from .env.local / .env)
+ *   npm run eval -- margaret     # names containing "margaret"
  */
 import type { ConsentScenarioName } from "@/apps/insurance_claims/data";
 import { claudeLlm } from "@/lib/llm";
 import { runTurn } from "@/lib/sop/engine";
 import { createSession, type Session } from "@/lib/sop/session";
 
+// Set before loading .env (which never overrides), so the goldens always run
+// on the fixture-consistent date even if .env sets a different one.
 process.env.SOP_TODAY ||= "2026-03-01";
+// Next.js loads .env for the app; a plain script has to do it itself.
+for (const file of [".env.local", ".env"]) {
+  try {
+    process.loadEnvFile(file);
+  } catch {
+    // file absent: fine, the key may come from the shell instead
+  }
+}
 
 type Check = (s: Session) => string | null;
 type Golden = { name: string; consent?: ConsentScenarioName; lines: string[]; checks: Check[] };
