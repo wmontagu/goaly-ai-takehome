@@ -3,7 +3,7 @@
  * phrases; these decide *what* it must say this turn (SPEC §3.1: "ask for
  * exactly what's missing").
  */
-import type { WorkflowPath } from "@/apps/insurance_claims/sop.config";
+import { IDENTITY_FIELD_LABELS, type WorkflowPath } from "@/apps/insurance_claims/sop.config";
 import type { Missing } from "./gates";
 import type { ScopeOutcome } from "./policies";
 import type { Phase } from "./state-machine";
@@ -42,12 +42,19 @@ function verifyDirectives(m: Missing, u: Understanding, isFirstAsk: boolean): st
   switch (m.kind) {
     case "identity":
       if (m.has_mismatch) {
-        d.push(`Say that the details provided so far don't all match our records. Don't say which detail, and don't give a count of how many more are needed. Ask them to double-check what they gave, or to give a different detail instead (any of: ${m.not_yet_provided.join(", ")}).`);
+        // Always the full name plus everything else they gave, whichever field
+        // failed: asking for just the failed one would reveal which it was.
+        // Re-asking lets them fix a typo or a misheard word (Call mode).
+        const others = m.provided.filter((f) => f !== "name").map((f) => IDENTITY_FIELD_LABELS[f]);
+        d.push(
+          `Say that the details provided so far don't all match our records, so you'd like to go over them again in case something was misheard or mistyped. Ask them to say their full name again${others.length ? `, and to repeat their ${others.join(", ")}` : ""}. Don't say which detail didn't match, and don't give a count of how many more are needed. They can also give a different detail instead (any of: ${m.not_yet_provided.join(", ")}).`,
+        );
       } else if (isFirstAsk && m.provided.length === 0) {
         d.push(`Greet the caller and explain you need to verify their identity before discussing any account or claim details. Ask for any ${m.still_needed} of: ${m.not_yet_provided.join(", ")}.`);
       } else {
         d.push(`Thank them for what they've provided so far. Ask for ${m.still_needed} more detail(s), any of: ${m.not_yet_provided.join(", ")}. Refer to the ID option as "${m.id_label}".`);
       }
+      d.push("Never repeat back any identity detail the caller gave (their name, date of birth, numbers, email), not even to confirm it.");
       if (u.refuses_identity) {
         d.push("They don't want to give some information. Acknowledge that, and point out they can use any of the other listed details instead.");
       }

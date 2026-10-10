@@ -184,6 +184,32 @@ describe("engine: verification gate", () => {
     expect(s.handoff!.first_step).toMatch(/already verified/);
   });
 
+  it("on a mismatch, re-asks for the full name and the rest, then accepts the correction", async () => {
+    const s = createSession();
+    const { llm, prompts } = scripted([
+      u({ identity: { name: "Margaret Chan", policy_number: "POL-9921", dob: "1985-03-15" } }), // misheard name
+      u({ identity: { name: "Margaret Chen" } }), // corrected
+    ]);
+    await runTurn(s, "Margaret Chan, POL-9921, born March 15 1985", llm);
+    expect(s.phase).toBe("VERIFY_ID");
+    expect(prompts[0]).toContain("say their full name again, and to repeat their date of birth, policy number");
+    expect(prompts[0]).toContain("Never repeat back any identity detail");
+    await runTurn(s, "Sorry, it's Margaret Chen", llm);
+    expect(s.memory.verified_party_id).toBe("P9");
+  });
+
+  it("the mismatch re-ask is the same whichever detail was wrong", async () => {
+    const ask = async (identity: Understanding["identity"]) => {
+      const { llm, prompts } = scripted([u({ identity })]);
+      await runTurn(createSession(), "my details", llm);
+      return prompts[0].match(/Say that the details provided[^\n]*/)?.[0];
+    };
+    const wrongName = await ask({ name: "Margaret Chan", policy_number: "POL-9921", dob: "1985-03-15" });
+    const wrongDob = await ask({ name: "Margaret Chen", policy_number: "POL-9921", dob: "1990-01-01" });
+    expect(wrongName).toBeTruthy();
+    expect(wrongName).toBe(wrongDob);
+  });
+
   it("rolls state back if the model call fails mid-turn", async () => {
     const s = createSession();
     const llm: Llm = {
