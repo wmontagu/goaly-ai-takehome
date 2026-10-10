@@ -94,6 +94,8 @@ export default function Home() {
   async function send(spoken?: string) {
     const text = (spoken ?? input).trim();
     if (!text || !view || pending) return;
+    // A typed message ends any listening or speech in progress.
+    if (spoken === undefined) stopCall();
     setInput("");
     setPending(true);
     setBanner(null);
