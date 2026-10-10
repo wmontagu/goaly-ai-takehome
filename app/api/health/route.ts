@@ -20,6 +20,7 @@ export function GET() {
     ok: true,
     serverKey,
     models: { understand: MODEL_UNDERSTAND(), respond: MODEL_RESPOND() },
+    speechToText: process.env.DEEPGRAM_API_KEY?.trim() ? "deepgram" : "browser fallback (no DEEPGRAM_API_KEY)",
     sopToday: process.env.SOP_TODAY || null,
   });
 }

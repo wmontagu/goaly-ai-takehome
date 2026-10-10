@@ -55,10 +55,11 @@ say which one is wrong), ask about "my car claim" after verifying as
 Margaret, or ask to speak to a person at any point.
 
 **4. Make it a phone call.** Turn on **📞 Call mode** in the header. The
-agent reads its replies aloud, then listens for your answer; the mic button
-talks or interrupts. It uses the browser's built-in speech, so listening
-needs Chrome or Edge. It only ever speaks the reply that already passed the
-output filter.
+agent reads its replies aloud, then listens for your answer and sends it when
+you pause; the mic button talks, interrupts, or sends right away. Your speech
+is transcribed by Deepgram on the server, so it works in any modern browser;
+the voice is the browser's own. It only ever speaks the reply that already
+passed the output filter.
 
 **5. Get transferred.** Ask for a person, or go off-topic three times. The
 human agent gets a **handoff note**: who's calling, whether they're verified,
@@ -97,6 +98,7 @@ in a header, and never stored or logged on the server.
 | `ANTHROPIC_API_KEY` | yes (or supplied via the UI) | none | Model access |
 | `MODEL_UNDERSTAND` | no | `claude-haiku-5-5` | Call ①: classify + extract |
 | `MODEL_RESPOND` | no | `claude-sonnet-5-5` | Call ⑤: reply, plus the email summary |
+| `DEEPGRAM_API_KEY` | no | none | Call mode speech-to-text. Without it, Call mode uses the browser's own recognition (Chrome/Edge only) |
 | `EMAIL_PROVIDER` | no | `simulated` | Email sender implementation |
 | `SOP_TODAY` | no | real date | Fixed "today" (YYYY-MM-DD) for deadline math. `2026-03-01` fits every fixture: after all claims were created and before both appeal deadlines. |
 

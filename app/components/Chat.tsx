@@ -128,10 +128,12 @@ export function Chat({
                 (call.status === "speaking"
                   ? "Agent is speaking… tap the mic to interrupt."
                   : call.status === "listening"
-                    ? "Listening… speak now."
+                    ? "Listening… speak now. Pause when you're done, or tap the mic to send."
+                    : call.status === "transcribing"
+                      ? "Got it, transcribing…"
                     : call.canListen
                       ? "Tap the mic to talk, or type."
-                      : "This browser can't listen, so type your replies. The agent still speaks. (Chrome or Edge can do both.)")}
+                      : "This browser can't record audio, so type your replies. The agent still speaks.")}
             </div>
           )}
           <form
@@ -157,7 +159,7 @@ export function Chat({
                     : "border border-neutral-700 text-neutral-200 hover:bg-neutral-800"
                 }`}
                 onClick={call.onMic}
-                disabled={pending}
+                disabled={pending || call.status === "transcribing"}
               >
                 {call.status === "listening" ? "● Listening" : "🎤"}
               </button>
