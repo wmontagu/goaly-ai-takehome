@@ -19,7 +19,9 @@ const KIND_COLOR: Record<TraceEvent["kind"], string> = {
 
 export function TracePanel({ events }: { events: TraceEvent[] }) {
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [events.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [events.length]);
 
   if (!events.length) {
     return <div className="p-4 text-sm text-neutral-500">Each turn&apos;s pipeline steps appear here as they run.</div>;

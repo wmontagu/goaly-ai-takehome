@@ -25,7 +25,8 @@ export function Chat({
   input,
   setInput,
   onSend,
-  disabled,
+  ended,
+  onRestart,
 }: {
   messages: ChatMessage[];
   outbox: SessionView["outbox"];
@@ -33,10 +34,14 @@ export function Chat({
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
-  disabled: boolean;
+  /** Set once the SOP reaches a terminal phase: the input is replaced by an end card. */
+  ended: "TRANSFERRED" | "ENDED" | null;
+  onRestart: () => void;
 }) {
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages.length, pending, outbox.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, pending, outbox.length]);
 
   return (
     <div className="flex h-full flex-col">
@@ -75,28 +80,41 @@ export function Chat({
         )}
         <div ref={end} />
       </div>
-      <form
-        className="flex gap-2 border-t border-neutral-800 p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSend();
-        }}
-      >
-        <input
-          className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-sky-500"
-          placeholder={disabled ? "Conversation ended. Start a new session." : "Type a message…"}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={disabled}
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-          disabled={disabled || pending || !input.trim()}
+      {ended ? (
+        <div className="flex flex-col items-center gap-2 border-t border-neutral-800 p-4 text-center">
+          <div className="text-sm text-neutral-300">
+            {ended === "TRANSFERRED" ? "You've been transferred to a representative." : "Call ended."}
+          </div>
+          <button
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+            onClick={onRestart}
+          >
+            Start a new call
+          </button>
+        </div>
+      ) : (
+        <form
+          className="flex gap-2 border-t border-neutral-800 p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSend();
+          }}
         >
-          Send
-        </button>
-      </form>
+          <input
+            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-sky-500"
+            placeholder="Type a message…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            disabled={pending || !input.trim()}
+          >
+            Send
+          </button>
+        </form>
+      )}
     </div>
   );
 }

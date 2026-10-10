@@ -26,6 +26,27 @@ function storeKey(v: string) {
   }
 }
 
+/** Desktop column layouts, indexed by how many side panels are open. */
+const LAYOUT = [
+  "",
+  "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
+  "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)]",
+];
+
+function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      aria-pressed={on}
+      className={`rounded border px-2.5 py-1 text-xs ${
+        on ? "border-sky-600 bg-sky-950/40 text-sky-200" : "border-neutral-700 text-neutral-400 hover:bg-neutral-800"
+      }`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function Home() {
   const [view, setView] = useState<SessionView | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -36,6 +57,8 @@ export default function Home() {
   const [apiKey, setApiKey] = useState("");
   const [consent, setConsent] = useState<"default" | "timeout">("default");
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [showState, setShowState] = useState(true);
+  const [showTrace, setShowTrace] = useState(true);
   const [script, setScript] = useState<{ s: Script; next: number } | null>(null);
 
   const start = useCallback(async (consentScenario: string, notice?: string) => {
@@ -53,7 +76,12 @@ export default function Home() {
     })();
   }, [start]);
 
-  const terminal = view?.phase === "TRANSFERRED" || view?.phase === "ENDED";
+  const ended = view?.phase === "TRANSFERRED" || view?.phase === "ENDED" ? view.phase : null;
+
+  function restart() {
+    setScript(null);
+    void start(consent);
+  }
 
   async function send() {
     const text = input.trim();
@@ -108,18 +136,18 @@ export default function Home() {
         <h1 className="text-sm font-semibold">SOP Claims Agent</h1>
         <span className="text-xs text-neutral-500">VERIFY_ID → RESOLVE_INTENT → PROCESS_CASE → POST_PROCESS</span>
         <div className="ml-auto flex gap-2">
-          <button
-            className="rounded border border-neutral-700 px-2.5 py-1 text-xs hover:bg-neutral-800"
-            onClick={() => setDrawerOpen((o) => !o)}
-          >
-            {drawerOpen ? "Hide" : "Show"} test drawer
-          </button>
+          <Toggle on={drawerOpen} onClick={() => setDrawerOpen((o) => !o)}>
+            Test drawer
+          </Toggle>
+          <Toggle on={showState} onClick={() => setShowState((o) => !o)}>
+            SOP state
+          </Toggle>
+          <Toggle on={showTrace} onClick={() => setShowTrace((o) => !o)}>
+            Trace
+          </Toggle>
           <button
             className="rounded bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-900 hover:bg-white"
-            onClick={() => {
-              setScript(null);
-              void start(consent);
-            }}
+            onClick={restart}
           >
             New session
           </button>
@@ -186,8 +214,10 @@ export default function Home() {
         <div className="border-b border-red-900 bg-red-950/60 px-4 py-2 text-sm text-red-200">{banner}</div>
       )}
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)]">
-        <section className="min-h-[60vh] border-neutral-800 lg:min-h-0 lg:border-r">
+      <main className={`grid min-h-0 flex-1 grid-cols-1 ${LAYOUT[Number(showState) + Number(showTrace)]}`}>
+        <section
+          className={`min-h-[60vh] border-neutral-800 lg:min-h-0 ${showState || showTrace ? "lg:border-r" : "mx-auto w-full max-w-3xl"}`}
+        >
           <Chat
             messages={messages}
             outbox={view?.outbox ?? []}
@@ -195,18 +225,25 @@ export default function Home() {
             input={input}
             setInput={setInput}
             onSend={() => void send()}
-            disabled={terminal}
+            ended={ended}
+            onRestart={restart}
           />
         </section>
-        <section className="overflow-y-auto border-t border-neutral-800 lg:border-t-0 lg:border-r">
-          <StatePanel view={view} />
-        </section>
-        <section className="max-h-[70vh] overflow-y-auto border-t border-neutral-800 lg:max-h-none lg:border-t-0">
-          <div className="sticky top-0 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Trace
-          </div>
-          <TracePanel events={trace} />
-        </section>
+        {showState && (
+          <section
+            className={`overflow-y-auto border-t border-neutral-800 lg:border-t-0 ${showTrace ? "lg:border-r" : ""}`}
+          >
+            <StatePanel view={view} />
+          </section>
+        )}
+        {showTrace && (
+          <section className="max-h-[70vh] overflow-y-auto border-t border-neutral-800 lg:max-h-none lg:border-t-0">
+            <div className="sticky top-0 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Trace
+            </div>
+            <TracePanel events={trace} />
+          </section>
+        )}
       </main>
     </div>
   );
