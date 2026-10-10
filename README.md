@@ -158,8 +158,11 @@ timing out), Ma Tian (national ID), and an injection attempt.
    POLICIES   human request → transfer; off-topic/injection → strike, no gate
 ③ GATES       current phase's exit condition, against memory + fixtures
 ④ TRANSITION  pass → next phase, and re-run the next gate (cascade)
+   RETRIEVE    post-verify only: BM25 over chunked fixtures, scoped to the
+              caller's own records + shared guidance (lib/domain/retrieval.ts)
 ⑤ RESPOND     Sonnet, given only this phase's visibleData() + directives
-⑥ FILTER      pre-verify: block claim/PII leaks; post-verify: ground amounts/dates
+⑥ FILTER      pre-verify: block claim/PII leaks; post-verify: ground amounts,
+              dates, and reference numbers (formats learned from the data)
 ```
 
 ### Gates are loops ([`lib/sop/gates.ts`](./lib/sop/gates.ts))

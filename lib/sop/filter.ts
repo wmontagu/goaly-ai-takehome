@@ -7,8 +7,11 @@
  *    policyholder data the caller didn't type themselves.
  *  - groundingCheck: after verification, flag dollar amounts and dates that
  *    aren't in the data the reply was given.
- *  - idCheck: after verification, flag policy numbers and claim IDs that
- *    aren't the verified caller's own (the model inventing "POL-55821").
+ *  - idCheck: after verification, flag reference numbers (policy numbers,
+ *    claim IDs) that aren't the verified caller's own.
+ *
+ * What a reference number looks like is learned from the data (the letter
+ * prefixes of every case_id and policy_number), not written into the code.
  */
 import { claims, claimsForParty, findPolicyholder, policyholders, representatives } from "@/apps/insurance_claims/data";
 
@@ -59,6 +62,22 @@ function protectedValues(): string[] {
 
 const PROTECTED = protectedValues();
 
+/** Letter prefixes of every reference number in the data, e.g. ["CL", "POL"] for "CL-2048"/"POL-9921". */
+const ID_PREFIXES = [
+  ...new Set(
+    [...claims.map((c) => c.case_id), ...policyholders.map((p) => p.policy_number)]
+      .map((id) => id.match(/^([A-Za-z]+)[\s-]?\d+$/)?.[1]?.toUpperCase())
+      .filter((p): p is string => Boolean(p)),
+  ),
+];
+
+/** Anything in a reply shaped like one of the data's reference numbers. */
+function referenceNumbers(text: string): string[] {
+  if (!ID_PREFIXES.length) return [];
+  const shape = new RegExp(`\\b(?:${ID_PREFIXES.join("|")})[\\s-]?\\d{3,}\\b`, "gi");
+  return [...text.matchAll(shape)].map((m) => m[0]);
+}
+
 function containsValue(haystack: string, value: string): boolean {
   // Word-ish boundaries so "4472" doesn't fire inside "144720".
   const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -84,8 +103,8 @@ export function leakCheck(reply: string, callerTexts: string[]): LeakCheck {
     const callerSaidIt = containsValue(said, v) || (/^\d{4,}$/.test(v) && digitsSaid.includes(v));
     if (!callerSaidIt) hits.add(v);
   }
-  for (const m of r.matchAll(/cl-\d{3,}/g)) {
-    if (!said.includes(m[0])) hits.add(m[0]);
+  for (const ref of referenceNumbers(r)) {
+    if (!said.includes(ref)) hits.add(ref);
   }
   if (/\$\s?\d/.test(r)) hits.add("dollar amount");
 
@@ -100,9 +119,8 @@ export function idCheck(reply: string, partyId: string): string[] {
   const allowed = new Set([holder?.policy_number ?? "", ...claimsForParty(partyId).map((c) => c.case_id)].filter(Boolean).map(idKey));
   const policyDigits = holder ? idKey(holder.policy_number).replace(/\D/g, "") : "";
   const bad = new Set<string>();
-  // Anything shaped like an ID: POL-9921, CL-2048, "POL 9921".
-  for (const m of reply.matchAll(/\b(?:POL|CL)[\s-]?\d{3,}\b/gi)) {
-    if (!allowed.has(idKey(m[0]))) bad.add(m[0]);
+  for (const ref of referenceNumbers(reply)) {
+    if (!allowed.has(idKey(ref))) bad.add(ref);
   }
   // A policy number stated without the prefix: "your policy number is 55821".
   for (const m of reply.matchAll(/policy (?:number|no\.?|#)\s*(?:is|of|:)?\s*#?\s*([A-Z]*[\s-]?\d[\d-]{2,})/gi)) {

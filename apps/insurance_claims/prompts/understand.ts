@@ -16,7 +16,7 @@ Fields:
   denial_question (why was it denied / what was wrong), status_inquiry (what's the status / was it paid / how much),
   document_submission (how to send, upload, or prepare documents; missing documents), next_steps (what do I do now / deadlines / appeal),
   general_claim_question (other questions about a claim).
-- case_hints: anything that identifies which claim: case_id (e.g. "CL-2048"), case_type (healthcare / dental / auto; medical counts as healthcare, car counts as auto), status (denied / open / closed; "in progress" or "pending" = open, "settled" or "paid" = closed), month (1-12) and year if a date is mentioned.
+- case_hints: anything that identifies which claim: case_id (the claim or case number exactly as the caller says it), case_type (healthcare / dental / auto; medical counts as healthcare, car counts as auto), status (denied / open / closed; "in progress" or "pending" = open, "settled" or "paid" = closed), month (1-12) and year if a date is mentioned.
 - emotion: neutral, frustrated, anxious, angry, confused, or refusing (unwilling to provide information or continue).
 - scope: in_scope = anything about their insurance claims, policy, documents, billing, this call, or questions about the verification process.
   smalltalk = greetings, thanks, "ok", pleasantries. out_of_scope = anything else (general knowledge, coding, other companies, opinions, e.g. "what is RL?").

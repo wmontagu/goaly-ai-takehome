@@ -13,6 +13,7 @@ const KIND_COLOR: Record<TraceEvent["kind"], string> = {
   tool_rejected: "text-red-400",
   leak_blocked: "text-red-400",
   grounding_flag: "text-orange-300",
+  retrieval: "text-cyan-300",
   respond: "text-neutral-500",
   error: "text-red-400",
 };

@@ -10,6 +10,7 @@ import { fitsHints, hasAnyHint } from "@/lib/domain/case-match";
 import { renderEmail, type EmailSummary } from "@/lib/domain/email-summary";
 import { backfillIdentity } from "@/lib/domain/pii-extract";
 import { deadlineInfo, joinDocuments } from "@/lib/domain/guidance";
+import { retrieve, type Retrieved } from "@/lib/domain/retrieval";
 import type { Llm } from "@/lib/llm/types";
 import { endConversation, getClaimDetail, sendEmailSummary, transferToHuman } from "@/lib/tools";
 import { addTrace } from "@/lib/trace";
@@ -263,7 +264,27 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
       gate,
       gate === "VERIFY_ID" ? ["any other identity details from the list", "a transfer to a human representative"] : [],
     );
-    const data = visibleData(session, missing, processCtx);
+    // Retrieval: rank the verified caller's own records (plus shared guidance)
+    // against what they just asked. Nothing is retrieved before verification.
+    let retrieved: Retrieved[] = [];
+    if (mem.verified_party_id && !TERMINAL.has(phase)) {
+      const query = [text, u.question, mem.intent, mem.selected_case_id].filter(Boolean).join(" ");
+      retrieved = retrieve(query, mem.verified_party_id);
+      addTrace(
+        session,
+        "retrieval",
+        retrieved.length ? `BM25: ${retrieved.map((r) => `${r.id} (${r.score})`).join(", ")}` : "BM25: no matching records",
+        retrieved,
+      );
+      // Values in retrieved records are grounded too.
+      if (processCtx) {
+        for (const r of retrieved) {
+          processCtx.allowed.amounts.push(...(r.text.match(/\b\d+\.\d{2}\b/g) ?? []));
+          processCtx.allowed.dates.push(...(r.text.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? []));
+        }
+      }
+    }
+    const data = visibleData(session, missing, processCtx, retrieved);
     const system = buildSystem(phase, transitions, directives, tone, data);
     const visibleTurns = session.transcript.filter((t) => t.turn >= session.contextStartTurn);
     const transcript = visibleTurns.map((t) => ({ role: t.role, content: t.text }));

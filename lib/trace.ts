@@ -15,6 +15,7 @@ export type TraceKind =
   | "tool_rejected"
   | "leak_blocked"
   | "grounding_flag"
+  | "retrieval"
   | "respond"
   | "error";
 

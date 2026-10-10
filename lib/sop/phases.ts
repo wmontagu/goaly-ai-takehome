@@ -8,6 +8,7 @@ import { claimFieldGlossary, findPolicyholder, guideline, type Claim } from "@/a
 import { INTENT_TO_PATH, type WorkflowPath } from "@/apps/insurance_claims/sop.config";
 import { maskEmail } from "@/lib/domain/email-summary";
 import { applicableFollowups, deadlineInfo, matchFollowups, today } from "@/lib/domain/guidance";
+import type { Retrieved } from "@/lib/domain/retrieval";
 import { getClaimDetail, getDocumentGuidance } from "@/lib/tools";
 import type { Missing } from "./gates";
 import type { Session } from "./session";
@@ -68,7 +69,10 @@ export function visibleData(
   session: Session,
   missing: Missing | null,
   process: ProcessContext | null,
+  /** BM25 matches for this turn's question, from the verified caller's own records and shared guidance. */
+  retrieved: Retrieved[] = [],
 ): Record<string, unknown> {
+  const records = retrieved.length ? retrieved.map((r) => ({ source: r.id, text: r.text })) : undefined;
   const mem = session.memory;
   switch (session.phase) {
     case "VERIFY_ID":
@@ -80,15 +84,17 @@ export function visibleData(
     case "RESOLVE_INTENT":
       return {
         account: verifiedAccount(session),
+        records_matching_question: records,
         remembered_from_earlier: { intent: mem.intent ?? null, case_hints: mem.case_hints },
         gate: missing,
       };
     case "PROCESS_CASE":
-      return { account: verifiedAccount(session), ...(process?.data ?? {}) };
+      return { account: verifiedAccount(session), ...(process?.data ?? {}), records_matching_question: records };
     case "POST_PROCESS": {
       const holder = findPolicyholder(mem.verified_party_id!);
       return {
         account: verifiedAccount(session),
+        records_matching_question: records,
         email_on_file_masked: holder ? maskEmail(holder.email) : null,
         email_offer: missing,
         discussed: mem.discussed.map((d) => d.topic),
