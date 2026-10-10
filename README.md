@@ -12,6 +12,48 @@ see.
 
 The full design contract is [SPEC.md](./SPEC.md).
 
+## Review it in 3 minutes
+
+**Live demo: https://goaly-ai-takehome.onrender.com/**
+
+It runs on my API key, so there's nothing to set up. To use your own, paste
+it into the **API key** field in the test drawer. It stays in your browser
+tab, is sent per request, and is never stored on the server.
+
+**1. Click a script.** The **Scripts** row in the test drawer fills in each
+caller line. Press Send to use it, or type your own.
+
+| Script | What to watch for |
+| --- | --- |
+| **Margaret: happy path** | The full SOP. One message verifies her and goes straight to her denied January claim (CL-2048) without asking "how can I help?" It explains the denial from the claim record, then offers an email summary when she's done. |
+| **Hint before verification** | She mentions the claim first, then gives ID one detail at a time. The agent says nothing about any claim until she's verified, and then uses the remembered hint instead of asking which claim. |
+| **Frustrated caller** | "This is ridiculous. Just tell me why my claim was denied." The agent acknowledges the frustration and explains why verification is required, but doesn't skip it. |
+
+Also worth a click: **Injection attempt** (the reply is blocked before it
+reaches you), **Off-topic ×3** (refuse, offer a human, then transfer), and
+**Rep David Chen** (a son calling for his mother, which needs her consent).
+
+**2. Watch the side panels.** **SOP state** shows the phase, which identity
+fields matched, what the agent remembered, and the escalation counters.
+**Trace** shows every pipeline step of every turn: what the model understood,
+what code decided, and whether the output filter blocked anything. Both can
+be hidden from the header to just talk to the agent.
+
+**3. Try your own.** Verifying takes any 3 matching details from one person.
+
+| Person | Policy | Date of birth | ID last 4 | Phone | Claims |
+| --- | --- | --- | --- | --- | --- |
+| Margaret Chen | POL-9921 | 1985-03-15 | SSN 4472 | 650-521-2836 | CL-2048 healthcare, denied · CL-2102 auto, open · 2 closed |
+| Ma Tian | POL-8836 | 1964-09-10 | national ID 6688 | 650-208-8799 | CL-3001 healthcare, denied |
+| Ava Lopez | POL-1044 | 1990-08-21 | SSN 9180 | 650-388-2920 | none |
+
+David Chen (her son) can call on Margaret's behalf. Everything is in
+[`apps/insurance_claims/fixtures/`](./apps/insurance_claims/fixtures/).
+
+Things to try: give two people's details mixed together (the agent won't
+say which one is wrong), ask about "my car claim" after verifying as
+Margaret, or ask to speak to a person at any point.
+
 ## Tech stack
 
 - **Next.js 16** (App Router), **React 19**, **TypeScript**, **Tailwind 4**
