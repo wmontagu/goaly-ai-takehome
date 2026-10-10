@@ -237,6 +237,7 @@ export default function Home() {
           <Chat
             messages={messages}
             outbox={view?.outbox ?? []}
+            handoff={view?.handoff ?? null}
             pending={pending}
             input={input}
             setInput={setInput}

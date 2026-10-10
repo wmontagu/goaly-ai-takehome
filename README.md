@@ -54,6 +54,18 @@ Things to try: give two people's details mixed together (the agent won't
 say which one is wrong), ask about "my car claim" after verifying as
 Margaret, or ask to speak to a person at any point.
 
+**4. Make it a phone call.** Turn on **📞 Call mode** in the header. The
+agent reads its replies aloud, then listens for your answer; the mic button
+talks or interrupts. It uses the browser's built-in speech, so listening
+needs Chrome or Edge. It only ever speaks the reply that already passed the
+output filter.
+
+**5. Get transferred.** Ask for a person, or go off-topic three times. The
+human agent gets a **handoff note**: who's calling, whether they're verified,
+what they need, how they're feeling, and what was already tried, so the
+caller doesn't start over. Code builds it from the SOP's memory, not the
+model, and it contains no claim data unless the caller was verified.
+
 ## Tech stack
 
 - **Next.js 16** (App Router), **React 19**, **TypeScript**, **Tailwind 4**

@@ -26,7 +26,7 @@ export class SessionBusy extends Error {}
 
 export type TurnResult = { reply: string };
 
-type Snapshot = Pick<Session, "turn" | "phase" | "phaseHistory" | "memory" | "transcript" | "outbox" | "endReason" | "contextStartTurn">;
+type Snapshot = Pick<Session, "turn" | "phase" | "phaseHistory" | "memory" | "transcript" | "outbox" | "endReason" | "handoff" | "contextStartTurn">;
 
 function snapshot(s: Session): Snapshot {
   return structuredClone({
@@ -37,6 +37,7 @@ function snapshot(s: Session): Snapshot {
     transcript: s.transcript,
     outbox: s.outbox,
     endReason: s.endReason,
+    handoff: s.handoff,
     contextStartTurn: s.contextStartTurn,
   });
 }

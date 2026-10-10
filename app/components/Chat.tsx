@@ -19,9 +19,31 @@ function EmailCard({ email }: { email: SessionView["outbox"][number] }) {
   );
 }
 
+function HandoffCard({ note }: { note: NonNullable<SessionView["handoff"]> }) {
+  return (
+    <div className="mx-auto w-full max-w-md rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 text-xs">
+      <div className="mb-1 flex justify-between text-amber-300">
+        <span>🎧 Handoff note for the human agent</span>
+        <span className="text-amber-300/60">internal</span>
+      </div>
+      <div className="mb-2 text-neutral-400">Transferred: {note.reason}</div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        {note.rows.map((r) => (
+          <div key={r.label} className="contents">
+            <dt className="text-neutral-500">{r.label}</dt>
+            <dd className="text-neutral-200">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-2 border-t border-amber-800/40 pt-2 font-medium text-amber-200">{note.first_step}</div>
+    </div>
+  );
+}
+
 export function Chat({
   messages,
   outbox,
+  handoff,
   pending,
   input,
   setInput,
@@ -32,6 +54,7 @@ export function Chat({
 }: {
   messages: ChatMessage[];
   outbox: SessionView["outbox"];
+  handoff: SessionView["handoff"];
   pending: boolean;
   input: string;
   setInput: (v: string) => void;
@@ -45,7 +68,7 @@ export function Chat({
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, pending, outbox.length]);
+  }, [messages.length, pending, outbox.length, handoff]);
 
   return (
     <div className="flex h-full flex-col">
@@ -75,6 +98,7 @@ export function Chat({
         {outbox.map((e) => (
           <EmailCard key={e.id || e.subject} email={e} />
         ))}
+        {handoff && <HandoffCard note={handoff} />}
         {pending && (
           <div className="flex justify-start">
             <div className="rounded-2xl bg-neutral-800 px-3.5 py-2 text-sm text-neutral-400">

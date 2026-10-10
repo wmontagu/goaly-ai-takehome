@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type { ConsentScenarioName } from "@/apps/insurance_claims/data";
 import type { TraceEvent } from "@/lib/trace";
+import type { HandoffNote } from "./handoff";
 import { createMemory, type SessionMemory } from "./memory";
 import type { Phase } from "./state-machine";
 
@@ -40,6 +41,8 @@ export type Session = {
   outbox: OutboxEmail[];
   consentScenario: ConsentScenarioName;
   endReason?: string;
+  /** Written for the human agent when the call is transferred. */
+  handoff?: HandoffNote;
   /** Attached by the chat route for the duration of one turn. Not state. */
   traceSink?: (e: TraceEvent) => void;
   /** Serializes turns so two requests can't interleave on one session. */

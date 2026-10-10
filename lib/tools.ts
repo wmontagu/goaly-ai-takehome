@@ -9,6 +9,7 @@ import { claimsForParty, findClaim, findPolicyholder, type Claim, type ConsentSt
 import { getEmailSender, type SendResult } from "@/lib/email";
 import { caseTypeGuidance, documentGuidance, type DocumentGuidance } from "@/lib/domain/guidance";
 import { consentStatusAt } from "@/lib/domain/representative";
+import { buildHandoff } from "@/lib/sop/handoff";
 import { addTrace } from "@/lib/trace";
 import type { Session } from "@/lib/sop/session";
 import type { Phase } from "@/lib/sop/state-machine";
@@ -122,7 +123,8 @@ export async function sendEmailSummary(
 export function transferToHuman(session: Session, reason: string): void {
   authorize(session, "transfer_to_human");
   session.endReason = reason;
-  addTrace(session, "tool", `transfer_to_human (${reason})`);
+  session.handoff = buildHandoff(session, reason);
+  addTrace(session, "tool", `transfer_to_human (${reason})`, session.handoff);
 }
 
 export function endConversation(session: Session, reason: string): void {

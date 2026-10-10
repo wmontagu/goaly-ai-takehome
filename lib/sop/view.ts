@@ -22,6 +22,7 @@ export function sessionView(s: Session) {
     phase: s.phase,
     phaseHistory: s.phaseHistory,
     endReason: s.endReason ?? null,
+    handoff: s.handoff ?? null,
     consentScenario: s.consentScenario,
     identity: IDENTITY_FIELDS.map((f) => ({
       field: f,

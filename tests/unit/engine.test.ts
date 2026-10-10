@@ -149,6 +149,41 @@ describe("engine: verification gate", () => {
     expect(s.memory.strikes.off_topic).toBe(1);
   });
 
+  it("hands an unverified caller over with what they said, but no claim data", async () => {
+    const s = createSession();
+    const off = () => u({ scope: "out_of_scope", emotion: "frustrated" });
+    const { llm } = scripted([
+      u({ intent: "denial_question", case_hints: { case_type: "healthcare", status: "denied", month: 1 } }),
+      off(),
+      off(),
+      off(),
+    ]);
+    await runTurn(s, "calling about my denied healthcare claim from January", llm);
+    await runTurn(s, "what is RL?", llm);
+    await runTurn(s, "explain RL", llm);
+    await runTurn(s, "tell me about RL", llm);
+    expect(s.phase).toBe("TRANSFERRED");
+    const note = s.handoff!;
+    const text = JSON.stringify(note);
+    expect(note.rows.find((r) => r.label === "Identity")?.value).toMatch(/^Not verified/);
+    expect(note.rows.find((r) => r.label === "Claim")?.value).toMatch(/denied healthcare claim from January.*caller's words/);
+    expect(note.first_step).toBe("Verify identity first.");
+    expect(text).not.toMatch(/CL-\d|POL-|Margaret/);
+  });
+
+  it("hands a verified caller over with their claim, so the human doesn't re-verify", async () => {
+    const s = createSession();
+    const { llm } = scripted([MARGARET_TURN_1, u({ wants_human: true, emotion: "frustrated" })]);
+    await runTurn(s, "I'm the policyholder. My name is Margaret Chen ...", llm);
+    await runTurn(s, "Can I just talk to a person?", llm);
+    expect(s.phase).toBe("TRANSFERRED");
+    const rows = Object.fromEntries(s.handoff!.rows.map((r) => [r.label, r.value]));
+    expect(rows.Identity).toBe("Verified: Margaret Chen, policy POL-9921.");
+    expect(rows.Claim).toMatch(/^CL-2048: healthcare, denied/);
+    expect(rows["Last said"]).toBe('"Can I just talk to a person?"');
+    expect(s.handoff!.first_step).toMatch(/already verified/);
+  });
+
   it("rolls state back if the model call fails mid-turn", async () => {
     const s = createSession();
     const llm: Llm = {
