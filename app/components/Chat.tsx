@@ -126,14 +126,14 @@ export function Chat({
             <div className="border-t border-neutral-800 px-3 pt-2 text-xs text-neutral-400">
               {call.error ??
                 (call.status === "speaking"
-                  ? "Agent is speaking… tap the mic to interrupt."
+                  ? "🔊 Agent is speaking… tap Talk to interrupt."
                   : call.status === "listening"
-                    ? "Listening… speak now. Pause when you're done, or tap the mic to send."
+                    ? "🎙 Listening — just talk. Your words appear below and send when you pause, or tap Done."
                     : call.status === "transcribing"
-                      ? "Got it, transcribing…"
-                    : call.canListen
-                      ? "Tap the mic to talk, or type."
-                      : "This browser can't record audio, so type your replies. The agent still speaks.")}
+                      ? "Got it, sending…"
+                      : call.canListen
+                        ? "Tap Talk and start speaking, or type."
+                        : "This browser can't record audio, so type your replies. The agent still speaks.")}
             </div>
           )}
           <form
@@ -145,14 +145,14 @@ export function Chat({
           >
             <input
               className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              placeholder="Type a message…"
+              placeholder={call?.status === "listening" ? "Listening… start talking" : "Type a message…"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
             {call?.canListen && (
               <button
                 type="button"
-                aria-label={call.status === "listening" ? "Stop listening" : "Talk"}
+                aria-label={call.status === "listening" ? "Done talking, send it" : "Talk"}
                 className={`rounded-lg px-3 py-2 text-sm font-medium ${
                   call.status === "listening"
                     ? "animate-pulse bg-red-600 text-white"
@@ -161,7 +161,7 @@ export function Chat({
                 onClick={call.onMic}
                 disabled={pending || call.status === "transcribing"}
               >
-                {call.status === "listening" ? "● Listening" : "🎤"}
+                {call.status === "listening" ? "■ Done" : call.status === "transcribing" ? "…" : "🎤 Talk"}
               </button>
             )}
             <button

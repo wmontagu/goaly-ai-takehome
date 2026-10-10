@@ -65,6 +65,7 @@ export default function Home() {
   const ended = view?.phase === "TRANSFERRED" || view?.phase === "ENDED" ? view.phase : null;
   const call = useCallMode({
     onHeard: (heard) => void send(heard),
+    onPartial: (partial) => setInput(partial),
     canListen: () => !pending && !ended,
     sessionId: view?.id,
   });

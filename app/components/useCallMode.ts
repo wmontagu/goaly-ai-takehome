@@ -75,15 +75,19 @@ const SPEECH_RMS = 0.015; // louder than this counts as talking
 const END_SILENCE_MS = 1100; // this much quiet after talking ends the turn
 const NO_SPEECH_MS = 8000; // give up if the caller never starts talking
 const MAX_TURN_MS = 30000;
+const PARTIAL_EVERY_MS = 800; // how often the live transcript refreshes
 
 export type CallStatus = "idle" | "speaking" | "listening" | "transcribing";
 
 export function useCallMode({
   onHeard,
+  onPartial,
   canListen,
   sessionId,
 }: {
   onHeard: (text: string) => void;
+  /** The transcript so far, while the caller is still talking. */
+  onPartial: (text: string) => void;
   canListen: () => boolean;
   sessionId: string | undefined;
 }) {
@@ -108,9 +112,9 @@ export function useCallMode({
   const micStream = useRef<MediaStream | null>(null);
   /** Ends the current recording: send it for transcription, or throw it away. */
   const endRecording = useRef<((send: boolean) => void) | null>(null);
-  const latest = useRef({ onHeard, canListen, sessionId, useServer });
+  const latest = useRef({ onHeard, onPartial, canListen, sessionId, useServer });
   useEffect(() => {
-    latest.current = { onHeard, canListen, sessionId, useServer };
+    latest.current = { onHeard, onPartial, canListen, sessionId, useServer };
   });
 
   useEffect(() => {
@@ -146,7 +150,24 @@ export function useCallMode({
     else setError("Didn't catch that. Tap the mic to try again, or type.");
   }, []);
 
-  /** Records one caller turn and transcribes it on the server (Deepgram). */
+  /** Sends audio to /api/transcribe (Deepgram, server-side key). */
+  const transcribe = useCallback(async (audio: Blob): Promise<{ text?: string; error?: string; ok: boolean }> => {
+    const res = await fetch("/api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": audio.type || "audio/webm", "x-session-id": latest.current.sessionId ?? "" },
+      body: audio,
+    });
+    const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+    return { ...data, ok: res.ok };
+  }, []);
+
+  /**
+   * Records one caller turn and transcribes it on the server (Deepgram).
+   * While the caller talks, the audio so far is re-transcribed every
+   * PARTIAL_EVERY_MS so the words appear in the input box as they speak;
+   * the turn ends on a pause (or the Done button) and the final transcript
+   * is sent.
+   */
   const record = useCallback(async () => {
     stop(); // talking over the agent interrupts it
     const gen = generation.current;
@@ -181,6 +202,9 @@ export function useCallMode({
     let spoke = false;
     const startedAt = performance.now();
     let quietSince = startedAt;
+    let lastPartialAt = startedAt;
+    let partialInFlight = false;
+    let partialChunks = 0;
 
     const end = (shouldSend: boolean) => {
       send = shouldSend;
@@ -201,6 +225,21 @@ export function useCallMode({
       if (spoke && now - quietSince > END_SILENCE_MS) end(true);
       else if (!spoke && now - startedAt > NO_SPEECH_MS) end(false);
       else if (now - startedAt > MAX_TURN_MS) end(true);
+
+      // Live transcript: re-read everything said so far, one request at a time.
+      if (spoke && rec.state === "recording" && !partialInFlight && chunks.length > partialChunks && now - lastPartialAt > PARTIAL_EVERY_MS) {
+        partialInFlight = true;
+        lastPartialAt = now;
+        partialChunks = chunks.length;
+        transcribe(new Blob(chunks, { type: rec.mimeType || "audio/webm" }))
+          .then((r) => {
+            if (gen === generation.current && rec.state === "recording" && r.ok && r.text) latest.current.onPartial(r.text);
+          })
+          .catch(() => {})
+          .finally(() => {
+            partialInFlight = false;
+          });
+      }
     }, 100);
 
     rec.ondataavailable = (e) => {
@@ -216,16 +255,10 @@ export function useCallMode({
         return;
       }
       setStatus("transcribing");
-      const type = rec.mimeType || "audio/webm";
       try {
-        const res = await fetch("/api/transcribe", {
-          method: "POST",
-          headers: { "Content-Type": type, "x-session-id": latest.current.sessionId ?? "" },
-          body: new Blob(chunks, { type }),
-        });
-        const data = (await res.json()) as { text?: string; error?: string };
+        const data = await transcribe(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
         if (gen !== generation.current) return;
-        if (!res.ok) {
+        if (!data.ok) {
           setStatus("idle");
           setError(data.error === "session_gone" ? "This session expired. Start a new call." : (data.error ?? "Speech-to-text failed."));
           return;
@@ -237,8 +270,8 @@ export function useCallMode({
         setError("Couldn't reach the server to transcribe. Please try again or type.");
       }
     };
-    rec.start();
-  }, [deliver, stop]);
+    rec.start(250); // small chunks, so a partial transcript has fresh audio
+  }, [deliver, stop, transcribe]);
 
   /** Fallback: the browser's own recognition (Chrome/Edge). */
   const recognize = useCallback(() => {
@@ -248,7 +281,7 @@ export function useCallMode({
     const gen = generation.current;
     const r = new Ctor();
     r.lang = "en-US";
-    r.interimResults = false;
+    r.interimResults = true;
     r.continuous = false;
     let heard = "";
     let failed = false;
@@ -257,6 +290,7 @@ export function useCallMode({
         .map((res) => res[0]?.transcript ?? "")
         .join(" ")
         .trim();
+      if (heard) latest.current.onPartial(heard);
     };
     r.onerror = (e) => {
       if (gen !== generation.current) return;
@@ -336,11 +370,13 @@ export function useCallMode({
       // Created inside the click so the browser lets it run (autoplay policy);
       // the loudness check needs it to detect when the caller stops talking.
       if (typeof AudioContext !== "undefined") audioCtx.current ??= new AudioContext();
+      // Start listening right away, so it's obvious the caller can just talk.
+      listen();
     } else {
       stop();
       releaseMic();
     }
-  }, [releaseMic, stop]);
+  }, [listen, releaseMic, stop]);
 
   useEffect(
     () => () => {
