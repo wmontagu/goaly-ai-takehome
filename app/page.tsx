@@ -48,6 +48,81 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   );
 }
 
+/** "sk-ant-api03-…a1b2": enough to recognise a key without showing it. */
+function maskKey(k: string): string {
+  return k.length > 12 ? `${k.slice(0, 7)}…${k.slice(-4)}` : "your key";
+}
+
+/**
+ * The test drawer's own-key field. A pasted key is only used after it passes
+ * a check against Anthropic; until then (and after Remove) the server's key
+ * is used.
+ */
+function KeyField({ apiKey, onChange }: { apiKey: string; onChange: (key: string) => void }) {
+  const [draft, setDraft] = useState("");
+  const [status, setStatus] = useState<{ kind: "idle" | "checking" | "error"; message?: string }>({ kind: "idle" });
+
+  async function check() {
+    const key = draft.trim();
+    if (!key) return;
+    setStatus({ kind: "checking" });
+    try {
+      const res = await fetch("/api/key-check", { method: "POST", headers: { "x-anthropic-api-key": key } });
+      const data = (await res.json()) as { ok: boolean; message?: string };
+      if (data.ok) {
+        onChange(key);
+        setDraft("");
+        setStatus({ kind: "idle" });
+      } else {
+        setStatus({ kind: "error", message: data.message });
+      }
+    } catch {
+      setStatus({ kind: "error", message: "Couldn't reach the server to check the key." });
+    }
+  }
+
+  if (apiKey) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-emerald-300">✓ Using your key ({maskKey(apiKey)})</span>
+        <button className="rounded border border-neutral-700 px-2 py-0.5 hover:bg-neutral-800" onClick={() => onChange("")}>
+          Remove
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void check();
+      }}
+    >
+      <span className="text-neutral-400">Your Anthropic API key (optional)</span>
+      <input
+        type="password"
+        autoComplete="off"
+        className="w-64 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 font-mono"
+        placeholder="sk-ant-… (otherwise the server's key is used)"
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (status.kind === "error") setStatus({ kind: "idle" });
+        }}
+      />
+      <button
+        type="submit"
+        className="rounded bg-sky-600 px-2.5 py-1 font-medium text-white disabled:opacity-40"
+        disabled={!draft.trim() || status.kind === "checking"}
+      >
+        {status.kind === "checking" ? "Checking…" : "Use key"}
+      </button>
+      {status.kind === "error" && <span className="text-red-300">{status.message}</span>}
+    </form>
+  );
+}
+
 export default function Home() {
   const [view, setView] = useState<SessionView | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -177,19 +252,13 @@ export default function Home() {
       {drawerOpen && (
         <div className="space-y-2 border-b border-neutral-800 bg-neutral-950 px-4 py-3">
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <label className="flex items-center gap-2">
-              <span className="text-neutral-400">Anthropic API key (optional)</span>
-              <input
-                type="password"
-                className="w-64 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 font-mono"
-                placeholder="uses the server key if empty"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  storeKey(e.target.value);
-                }}
-              />
-            </label>
+            <KeyField
+              apiKey={apiKey}
+              onChange={(key) => {
+                setApiKey(key);
+                storeKey(key);
+              }}
+            />
             <label className="flex items-center gap-2">
               <span className="text-neutral-400">Rep consent scenario</span>
               <select

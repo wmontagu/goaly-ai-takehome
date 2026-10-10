@@ -21,8 +21,9 @@ data, decides the phase, and controls which data the reply is allowed to see.
 ## Review it in 3 minutes
 
 The live demo runs on my API key, so there's nothing to set up. To use your
-own, paste it into the **API key** field in the test drawer. It stays in your
-browser tab, is sent per request, and is never stored on the server.
+own, paste it into the test drawer and click **Use key**: it's checked with
+Anthropic first, then used for your tab only. It's sent per request and never
+stored on the server.
 
 **1. Click a script.** The **Scripts** row in the test drawer fills in each
 caller line. Press Send to use it, or type your own.
@@ -95,8 +96,8 @@ cp .env.example .env.local      # Windows: copy .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. With no server key, paste one into the **API
-key** field in the test drawer instead.
+Open http://localhost:3000. With no server key, paste one into the test
+drawer and click **Use key** instead.
 
 ### Environment variables
 
@@ -275,7 +276,7 @@ lib/llm/                 Anthropic client, understand (Haiku), respond + summari
 lib/email/               EmailSender interface + simulated sender
 lib/tools.ts             agent actions behind the per-phase allowlist
 app/                     UI (chat, Call mode, SOP state, trace, test drawer)
-app/api/                 /chat (SSE), /session, /transcribe (Deepgram), /health
+app/api/                 /chat (SSE), /session, /transcribe (Deepgram), /key-check, /health
 tests/unit/              94 Vitest tests, no LLM (engine via a scripted LLM, retrieval eval set)
 tests/golden/            real-model conversation evals
 ```
