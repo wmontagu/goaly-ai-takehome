@@ -132,6 +132,23 @@ describe("engine: verification gate", () => {
     expect(s.phase).toBe("TRANSFERRED");
   });
 
+  it("a failed verify attempt doesn't wipe the off-topic count; a clean in-scope turn does", async () => {
+    const s = createSession();
+    const { llm } = scripted([
+      u({ scope: "out_of_scope" }),
+      u({ intent: "denial_question" }), // first ask: free, so a clean in-scope turn
+      u({ scope: "out_of_scope" }),
+      u({ refuses_identity: true, emotion: "refusing" }), // in scope, but a verify strike
+    ]);
+    await runTurn(s, "what is RL?", llm);
+    await runTurn(s, "ok, why was my claim denied?", llm);
+    expect(s.memory.strikes.off_topic).toBe(0);
+    await runTurn(s, "what is RL?", llm);
+    await runTurn(s, "I'm not giving you that", llm);
+    expect(s.memory.strikes.verify_fail).toBe(1);
+    expect(s.memory.strikes.off_topic).toBe(1);
+  });
+
   it("rolls state back if the model call fails mid-turn", async () => {
     const s = createSession();
     const llm: Llm = {

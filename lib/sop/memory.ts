@@ -9,6 +9,8 @@ import type { CaseHints } from "@/lib/domain/case-match";
 import { IDENTITY_FIELDS, type IdentityFields } from "@/lib/domain/identity";
 import type { Emotion, Understanding } from "./understanding";
 
+export type Strikes = { off_topic: number; verify_fail: number; persuasion: number };
+
 export type SessionMemory = {
   identity: IdentityFields;
   caller_role: "policyholder" | "representative";
@@ -23,7 +25,7 @@ export type SessionMemory = {
   discussed: { topic: string; turn: number }[];
   follow_ups: string[];
   emotion_history: Emotion[];
-  strikes: { off_topic: number; verify_fail: number; persuasion: number };
+  strikes: Strikes;
   /** How many times the agent has asked for identity. The first ask is free (SPEC §4.1). */
   verify_asks: number;
   resolve_no_progress: number;

@@ -18,7 +18,7 @@ import { groundingCheck, leakCheck } from "./filter";
 import { GATE_FOR, type Missing } from "./gates";
 import { mergeUnderstanding, newCaseHints, resetIdentity } from "./memory";
 import { chooseProcessPath, visibleData, type ProcessContext } from "./phases";
-import { applyScope, emotionDirective, type BlockingGate, type ScopeOutcome } from "./policies";
+import { applyScope, emotionDirective, settleOffTopic, type BlockingGate, type ScopeOutcome } from "./policies";
 import type { Session } from "./session";
 import { NEXT, TERMINAL, transition, type Phase } from "./state-machine";
 
@@ -200,6 +200,7 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
       transferToHuman(session, "repeated out-of-scope requests");
       transition(session, "TRANSFERRED", "repeated out-of-scope requests");
     } else if (scope === "in_scope") {
+      const strikesBefore = { ...mem.strikes };
       // Inner loop: cascade through gates memory already satisfies (SPEC §3.1).
       for (let i = 0; i < 5 && !TERMINAL.has(session.phase); i++) {
         const phase = session.phase as keyof typeof GATE_FOR;
@@ -225,6 +226,7 @@ export async function runTurn(session: Session, text: string, llm: Llm): Promise
         }
         transition(session, NEXT[phase]!, result.note);
       }
+      settleOffTopic(session, u, strikesBefore);
     }
     // Off-topic turns skip the gates: the phase doesn't move (SPEC §6.1).
 
