@@ -254,7 +254,7 @@ export default function Home() {
                     status: call.status,
                     error: call.error,
                     canListen: call.supported.listen,
-                    onMic: () => (call.status === "listening" ? call.finish() : call.listen()),
+                    onMic: () => (call.status === "listening" || call.status === "paused" ? call.finish() : call.listen()),
                   }
                 : null
             }

@@ -72,12 +72,16 @@ const noSubscribe = () => () => {};
 
 // End-of-turn detection for recorded speech, by loudness.
 const SPEECH_RMS = 0.015; // louder than this counts as talking
-const END_SILENCE_MS = 1100; // this much quiet after talking ends the turn
+// Quiet that ends the turn: shorter once the live transcript reads like a
+// finished sentence, longer mid-thought ("my policy number is…").
+const END_SILENCE_DONE_MS = 1800;
+const END_SILENCE_MID_MS = 3000;
+const PAUSE_HINT_MS = 700; // after this much quiet, tell the caller it will send soon
 const NO_SPEECH_MS = 8000; // give up if the caller never starts talking
 const MAX_TURN_MS = 30000;
 const PARTIAL_EVERY_MS = 800; // how often the live transcript refreshes
 
-export type CallStatus = "idle" | "speaking" | "listening" | "transcribing";
+export type CallStatus = "idle" | "speaking" | "listening" | "paused" | "transcribing";
 
 export function useCallMode({
   onHeard,
@@ -205,6 +209,8 @@ export function useCallMode({
     let lastPartialAt = startedAt;
     let partialInFlight = false;
     let partialChunks = 0;
+    let soundsFinished = false; // the latest partial ends a sentence
+    let paused = false;
 
     const end = (shouldSend: boolean) => {
       send = shouldSend;
@@ -222,7 +228,12 @@ export function useCallMode({
         spoke = true;
         quietSince = now;
       }
-      if (spoke && now - quietSince > END_SILENCE_MS) end(true);
+      const quiet = now - quietSince;
+      if (spoke && rec.state === "recording" && (quiet > PAUSE_HINT_MS) !== paused) {
+        paused = quiet > PAUSE_HINT_MS;
+        setStatus(paused ? "paused" : "listening");
+      }
+      if (spoke && quiet > (soundsFinished ? END_SILENCE_DONE_MS : END_SILENCE_MID_MS)) end(true);
       else if (!spoke && now - startedAt > NO_SPEECH_MS) end(false);
       else if (now - startedAt > MAX_TURN_MS) end(true);
 
@@ -233,7 +244,10 @@ export function useCallMode({
         partialChunks = chunks.length;
         transcribe(new Blob(chunks, { type: rec.mimeType || "audio/webm" }))
           .then((r) => {
-            if (gen === generation.current && rec.state === "recording" && r.ok && r.text) latest.current.onPartial(r.text);
+            if (gen === generation.current && rec.state === "recording" && r.ok && r.text) {
+              soundsFinished = /[.?!]["')]?$/.test(r.text);
+              latest.current.onPartial(r.text);
+            }
           })
           .catch(() => {})
           .finally(() => {
