@@ -12,8 +12,8 @@ const GUIDE_DOCS = [...new Set([...Object.keys(guideline.document_guidance), ...
 );
 
 /**
- * Claims name documents loosely ("office note"); the guide uses formal names
- * ("treating provider office note"). Resolve to the guide entry whose name
+ * Claims name documents loosely ("lab report"); the guide uses formal names
+ * ("original signed lab report"). Resolve to the guide entry whose name
  * contains every word of the claim's name, preferring the most specific
  * (shortest) one. Decided in code from the data, never by an LLM guess.
  */
