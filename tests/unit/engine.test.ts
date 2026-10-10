@@ -199,7 +199,7 @@ describe("engine: verification gate", () => {
   });
 
   it("the mismatch re-ask is the same whichever detail was wrong", async () => {
-    const ask = async (identity: Understanding["identity"]) => {
+    const ask = async (identity: Partial<Understanding["identity"]>) => {
       const { llm, prompts } = scripted([u({ identity })]);
       await runTurn(createSession(), "my details", llm);
       return prompts[0].match(/Say that the details provided[^\n]*/)?.[0];
