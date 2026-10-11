@@ -10,13 +10,15 @@ proposes structured facts, and deterministic code checks them against the
 data, decides the phase, and controls which data the reply is allowed to see.
 
 - **Live demo:** https://goaly-ai-takehome.onrender.com/
-- **Video walkthrough:** https://drive.google.com/file/d/1dleTMvqmXGySmnxF2y5Cw7lKiv5yex9b/view?usp=sharing
+- **Design walkthrough (video), why it's built this way:** https://drive.google.com/file/d/1mLmagkvi1eBDVVJffMnM_GRTgrwL_fct/view?usp=drivesdk
+- **Demo walkthrough (video):** https://drive.google.com/file/d/1dleTMvqmXGySmnxF2y5Cw7lKiv5yex9b/view?usp=sharing
 - **Design contract:** [SPEC.md](./SPEC.md)
 
 > **About this write-up.** I built this with Claude Code as my pair
 > programmer, and this README was drafted with AI. The design decisions and
 > trade-offs described below are mine; the [Design decisions](#design-decisions)
-> section explains each one and why I made it.
+> section explains each one and why I made it, and the design walkthrough
+> video above covers them in my own words.
 
 ## Review it in 3 minutes
 
