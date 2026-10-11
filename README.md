@@ -10,7 +10,7 @@ proposes structured facts, and deterministic code checks them against the
 data, decides the phase, and controls which data the reply is allowed to see.
 
 - **Live demo:** https://goaly-ai-takehome.onrender.com/
-- **Video walkthrough:** _link coming soon_
+- **Video walkthrough:** https://drive.google.com/file/d/1dleTMvqmXGySmnxF2y5Cw7lKiv5yex9b/view?usp=sharing
 - **Design contract:** [SPEC.md](./SPEC.md)
 
 > **About this write-up.** I built this with Claude Code as my pair
